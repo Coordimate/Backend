@@ -1,4 +1,4 @@
-# Coordimate - Backend API
+# Coordimate - Backend
 
 First make sure to create your local `.env` file with secret variables, that won't be uploaded to github:
 ```
@@ -21,9 +21,9 @@ To stop the API and the database containers run:
 docker compose down
 ```
 
-## Developing the Backend API
+## Developing the Backend
 
-Most changes to the Backend API code will force the API server in the container to restart automatically.
+Most changes to the Backend code will force the API server in the container to restart automatically.
 
 To force the container with the backend API to rebuild run the command:
 ```
