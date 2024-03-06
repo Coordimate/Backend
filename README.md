@@ -1,5 +1,11 @@
 # Coordimate - Backend API
 
+First make sure to create your local `.env` file with secret variables, that won't be uploaded to github:
+```
+cp .env.example .env
+```
+Now you can fill in the variables in `.env` as needed.
+
 To get the API and the database containers up and running, run the following docker command:
 ```
 docker compose up -d
