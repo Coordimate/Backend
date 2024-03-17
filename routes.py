@@ -72,6 +72,31 @@ async def show_student(id: str):
     raise HTTPException(status_code=404, detail=f"Student {id} not found")
 
 
+@app.get(
+    "/time_slots"
+)
+async def get_time_slots():
+    return {
+        "result": [
+            {
+                "day": 1,
+                "start": 2.0,
+                "length": 2.0,
+            },
+            {
+                "day": 2,
+                "start": 4.0,
+                "length": 1.24,
+            },
+            {
+                "day": 4,
+                "start": 8.0,
+                "length": 0.78,
+            },
+        ]
+    }
+
+
 @app.put(
     "/students/{id}",
     response_description="Update a student",
