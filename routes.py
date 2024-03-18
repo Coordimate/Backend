@@ -27,85 +27,80 @@ app.add_middleware(
 )
 client = motor.motor_asyncio.AsyncIOMotorClient(os.environ["MONGODB_URL"])
 db = client.coordimate
-student_collection = db.get_collection("students")
+user_collection = db.get_collection("users")
+
+
+@app.get(
+    "/users/",
+    response_description="List all users",
+    response_model=models.UserCollection,
+    response_model_by_alias=False,
+)
+async def list_users():
+    return models.UserCollection(users=await user_collection.find().to_list(1000))
 
 
 @app.post(
-    "/students/",
-    response_description="Add new student",
-    response_model=models.StudentModel,
+    "/users/",
+    response_description="Add new user",
+    response_model=models.UserModel,
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def create_student(student: models.StudentModel = Body(...)):
-    new_student = await student_collection.insert_one(
-        student.model_dump(by_alias=True, exclude={"id"})
+async def create_user(user: models.UserModel = Body(...)):
+    new_user = await user_collection.insert_one(
+        user.model_dump(by_alias=True, exclude={"id"})
     )
-    created_student = await student_collection.find_one(
-        {"_id": new_student.inserted_id}
-    )
-    return created_student
+    created_user = await user_collection.find_one({"_id": new_user.inserted_id})
+    return created_user
 
 
 @app.get(
-    "/students/",
-    response_description="List all students",
-    response_model=models.StudentCollection,
+    "/users/{id}",
+    response_description="Get a single user",
+    response_model=models.UserModel,
     response_model_by_alias=False,
 )
-async def list_students():
-    return models.StudentCollection(students=await student_collection.find().to_list(1000))
+async def show_user(id: str):
+    if (user := await user_collection.find_one({"_id": ObjectId(id)})) is not None:
+        return user
 
-
-@app.get(
-    "/students/{id}",
-    response_description="Get a single student",
-    response_model=models.StudentModel,
-    response_model_by_alias=False,
-)
-async def show_student(id: str):
-    if (
-        student := await student_collection.find_one({"_id": ObjectId(id)})
-    ) is not None:
-        return student
-
-    raise HTTPException(status_code=404, detail=f"Student {id} not found")
+    raise HTTPException(status_code=404, detail=f"user {id} not found")
 
 
 @app.put(
-    "/students/{id}",
-    response_description="Update a student",
-    response_model=models.StudentModel,
+    "/users/{id}",
+    response_description="Update a user",
+    response_model=models.UserModel,
     response_model_by_alias=False,
 )
-async def update_student(id: str, student: models.UpdateStudentModel = Body(...)):
-    student_dict = {
-        k: v for k, v in student.model_dump(by_alias=True).items() if v is not None
+async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
+    user_dict = {
+        k: v for k, v in user.model_dump(by_alias=True).items() if v is not None
     }
 
-    if len(student_dict) >= 1:
-        update_result = await student_collection.find_one_and_update(
+    if len(user_dict) >= 1:
+        update_result = await user_collection.find_one_and_update(
             {"_id": ObjectId(id)},
-            {"$set": student_dict},
+            {"$set": user_dict},
             return_document=ReturnDocument.AFTER,
         )
         if update_result is not None:
             return update_result
         else:
-            raise HTTPException(status_code=404, detail=f"Student {id} not found")
+            raise HTTPException(status_code=404, detail=f"user {id} not found")
 
-    if (existing_student := await student_collection.find_one({"_id": id})) is not None:
-        return existing_student
+    if (existing_user := await user_collection.find_one({"_id": id})) is not None:
+        return existing_user
 
-    raise HTTPException(status_code=404, detail=f"Student {id} not found")
+    raise HTTPException(status_code=404, detail=f"user {id} not found")
 
 
-@app.delete("/students/{id}", response_description="Delete a student")
-async def delete_student(id: str):
-    delete_result = await student_collection.delete_one({"_id": ObjectId(id)})
+@app.delete("/users/{id}", response_description="Delete a user")
+async def delete_user(id: str):
+    delete_result = await user_collection.delete_one({"_id": ObjectId(id)})
 
     if delete_result.deleted_count == 1:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    raise HTTPException(status_code=404, detail=f"Student {id} not found")
-
+    raise HTTPException(status_code=404, detail=f"user {id} not found")

@@ -116,4 +116,3 @@ def generate_refresh_token(old_token: str, decoded_token: Type[schemas.AuthSchem
     )
     reponse.refresh_token = old_token
     return reponse
-
