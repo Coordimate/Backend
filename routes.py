@@ -47,7 +47,7 @@ async def list_users():
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def create_user(user: models.UserModel = Body(...)):
+async def create_user(user: models.CreateUserModel = Body(...)):
     new_user = await user_collection.insert_one(
         user.model_dump(by_alias=True, exclude={"id"})
     )
