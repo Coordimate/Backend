@@ -12,6 +12,10 @@ class CreateUserModel(BaseModel):
     username: str = Field(...)
     password: str = Field(...)
     email: EmailStr = Field(...)
+    
+class LoginUserModel(BaseModel):
+    email: EmailStr = Field(...)
+    password: str = Field(...)
 
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
