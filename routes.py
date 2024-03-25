@@ -11,6 +11,8 @@ from bson import ObjectId
 import models
 import schemas
 
+import bcrypt
+
 
 load_dotenv()
 
@@ -51,11 +53,30 @@ async def list_users():
     response_model_by_alias=False,
 )
 async def create_user(user: models.CreateUserModel = Body(...)):
+    user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
     new_user = await user_collection.insert_one(
         user.model_dump(by_alias=True, exclude={"id"})
     )
     created_user = await user_collection.find_one({"_id": new_user.inserted_id})
     return created_user
+
+@app.post(
+    "/login/",
+    response_description="Login a user",
+    response_model=models.UserModel,
+    status_code=status.HTTP_200_OK,
+    response_model_by_alias=False,
+)
+async def show_user(user: models.LoginUserModel = Body(...)):
+    print(user)
+    # print(user.email)
+    if (user_found := await user_collection.find_one({"email":user.email})) is not None:
+        if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
+            return user_found
+        else:
+            raise HTTPException(status_code=404, detail=f"password incorrect")
+
+    raise HTTPException(status_code=404, detail=f"user {user.email} not found")
 
 
 @app.get(
