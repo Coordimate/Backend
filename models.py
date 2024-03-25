@@ -8,6 +8,24 @@ from bson import ObjectId
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
+
+class TimeSlotModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    day: int = Field(...)
+    start: float = Field(...)
+    length: float = Field(...)
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str},
+        json_schema_extra={
+            "is_meeting": False,
+            "day": 1,
+            "start": 9.0,
+            "length": 2.5
+        },
+    )
+
+
 class CreateUserModel(BaseModel):
     username: str = Field(...)
     password: str = Field(...)
@@ -16,6 +34,7 @@ class CreateUserModel(BaseModel):
 class LoginUserModel(BaseModel):
     email: EmailStr = Field(...)
     password: str = Field(...)
+
 
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
