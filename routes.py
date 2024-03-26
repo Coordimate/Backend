@@ -46,7 +46,7 @@ time_slots_collection = db.get_collection("time_slots")
     status_code=status.HTTP_200_OK,
     response_model_by_alias=False,
 )
-async def show_user(user: schemas.LoginUserSchema = Body(...)):
+async def login(user: schemas.LoginUserSchema = Body(...)):
     print(user)
     # print(user.email)
     if (user_found := await user_collection.find_one({"email":user.email})) is not None:
@@ -87,13 +87,13 @@ async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
 # ********** Users **********
 
 @app.post(
-    "/users/",
+    "/register",
     response_description="Add new user",
     response_model=models.UserModel,
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def create_user(user: schemas.CreateUserSchema = Body(...)):
+async def register(user: schemas.CreateUserSchema = Body(...)):
     existing_user = await user_collection.find_one({"email": user.email})
     if existing_user:
         raise HTTPException(status_code=400, detail="User already exists")
