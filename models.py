@@ -3,6 +3,7 @@ from typing_extensions import Annotated
 
 from pydantic import ConfigDict, BaseModel, Field, EmailStr
 from pydantic.functional_validators import BeforeValidator
+# from pymongo.objectid import ObjectId
 from bson import ObjectId
 
 
@@ -24,7 +25,6 @@ class TimeSlotModel(BaseModel):
             "length": 2.5
         },
     )
-
 
 class CreateUserModel(BaseModel):
     username: str = Field(...)

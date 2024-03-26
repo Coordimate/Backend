@@ -1,10 +1,10 @@
 import os
 
 import motor.motor_asyncio
-from fastapi import FastAPI, HTTPException, Body, status
+from fastapi import FastAPI, HTTPException, Body, status, Depends
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
-from pymongo import ReturnDocument
+from pymongo import ReturnDocument#, ObjectId
 from dotenv import load_dotenv
 from bson import ObjectId
 
@@ -12,6 +12,8 @@ import models
 import schemas
 
 import bcrypt
+import auth
+from auth import JWTBearer
 
 
 load_dotenv()
@@ -35,15 +37,54 @@ user_collection = db.get_collection("users")
 time_slots_collection = db.get_collection("time_slots")
 
 
-@app.get(
-    "/users/",
-    response_description="List all users",
-    response_model=models.UserCollection,
+# ********** Authentification **********
+
+@app.post(
+    "/login",
+    response_description="Authentificate a user",
+    response_model=schemas.TokenSchema,
+    status_code=status.HTTP_200_OK,
     response_model_by_alias=False,
 )
-async def list_users():
-    return models.UserCollection(users=await user_collection.find().to_list(1000))
+async def show_user(user: models.LoginUserModel = Body(...)):
+    print(user)
+    # print(user.email)
+    if (user_found := await user_collection.find_one({"email":user.email})) is not None:
+        user_found["id"] = user_found.pop("_id")
+        if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
+            token = auth.generateToken(user_found)
+            return token
+        else:
+            raise HTTPException(status_code=400, detail=f"password incorrect")
 
+    raise HTTPException(status_code=404, detail=f"user {user.email} not found")
+
+@app.post(
+    "/refresh",
+    response_description="Refresh a token",
+    response_model=schemas.TokenSchema,
+    status_code=status.HTTP_200_OK,
+    response_model_by_alias=False,
+)
+async def refresh_token(token: schemas.RefreshTokenSchema = Body(...)):
+    decoded_token = auth.decodeJWT(token.refresh_token)
+    if (decoded_token is None) or (decoded_token.is_access_token != False):
+        raise HTTPException(status_code=401, detail="Invalid token or expired token.")
+    new_token = auth.generate_refresh_token(token.refresh_token, decoded_token)
+    return new_token
+
+@app.get(
+    "/me",
+    response_description="Get account information",
+    response_model=schemas.AccountOut
+)
+async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await user_collection.find_one({"email":user.email})
+    if user_found is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return user_found
+
+# ********** Users **********
 
 @app.post(
     "/users/",
@@ -60,24 +101,14 @@ async def create_user(user: models.CreateUserModel = Body(...)):
     created_user = await user_collection.find_one({"_id": new_user.inserted_id})
     return created_user
 
-@app.post(
-    "/login/",
-    response_description="Login a user",
-    response_model=models.UserModel,
-    status_code=status.HTTP_200_OK,
+@app.get(
+    "/users/",
+    response_description="List all users",
+    response_model=models.UserCollection,
     response_model_by_alias=False,
 )
-async def show_user(user: models.LoginUserModel = Body(...)):
-    print(user)
-    # print(user.email)
-    if (user_found := await user_collection.find_one({"email":user.email})) is not None:
-        if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
-            return user_found
-        else:
-            raise HTTPException(status_code=404, detail=f"password incorrect")
-
-    raise HTTPException(status_code=404, detail=f"user {user.email} not found")
-
+async def list_users():
+    return models.UserCollection(users=await user_collection.find().to_list(1000))
 
 @app.get(
     "/users/{id}",
@@ -90,7 +121,6 @@ async def show_user(id: str):
         return user
 
     raise HTTPException(status_code=404, detail=f"user {id} not found")
-
 
 @app.put(
     "/users/{id}",
@@ -120,7 +150,10 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
     raise HTTPException(status_code=404, detail=f"user {id} not found")
 
 
-@app.delete("/users/{id}", response_description="Delete a user")
+@app.delete(
+    "/users/{id}", 
+    response_description="Delete a user"
+)
 async def delete_user(id: str):
     delete_result = await user_collection.delete_one({"_id": ObjectId(id)})
 
@@ -129,6 +162,7 @@ async def delete_user(id: str):
 
     raise HTTPException(status_code=404, detail=f"user {id} not found")
 
+# ********** Time Slots **********
 
 @app.get(
     "/time_slots/",
@@ -183,7 +217,10 @@ async def update_time_slot(id: str, time_slot: schemas.UpdateTimeSlot = Body(...
     raise HTTPException(status_code=404, detail=f"time_slot {id} not found")
 
 
-@app.delete("/time_slots/{id}", response_description="Delete a time slot")
+@app.delete(
+    "/time_slots/{id}", 
+    response_description="Delete a time slot"
+)
 async def delete_time_slot(id: str):
     delete_result = await time_slots_collection.delete_one({"_id": ObjectId(id)})
 

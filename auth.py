@@ -52,9 +52,9 @@ class JWTBearer(HTTPBearer):
             raise HTTPException(status_code=403, detail="Invalid authorization code.")
 
 
-def createToken(account_id: int, valid_time: int, is_access_token: bool):
+def createToken(id: int, valid_time: int, is_access_token: bool):
     payload = {
-        "account_id": account_id,
+        "id": id,
         "is_access_token": is_access_token,
         "expires": time.time() + valid_time,
     }
@@ -68,33 +68,35 @@ def decodeJWT(token: str) -> Type[schemas.AuthSchema] | None:
         if decoded_token["expires"] < time.time():
             return None
         ret = schemas.AuthSchema
-        ret.account_id = decoded_token["account_id"]
+        ret.id = decoded_token["id"]
         ret.is_access_token = decoded_token["is_access_token"]
         return ret
     except:
         return None
 
 
-def get_user(db: Session, login: schemas.LoginSchema):
-    user = db.query(models.Account).filter(models.Account.email == login.email).first()
-    if user == None:
-        return None
-    if not bcrypt.checkpw(
-        login.password.encode("utf-8"), user.password.encode("utf-8")
-    ):
-        return None
-    return user
+# def get_user(db: Session, login: schemas.LoginSchema):
+#     user = db.query(models.Account).filter(models.Account.email == login.email).first()
+#     if user == None:
+#         return None
+#     if not bcrypt.checkpw(
+#         login.password.encode("utf-8"), user.password.encode("utf-8")
+#     ):
+#         return None
+#     return user
 
 
 def generateToken(account: schemas.AccountOut):
+    print("ACCOUNT OUT", account)
+    print(account["id"])
     reponse = schemas.TokenSchema
     reponse.access_token = createToken(
-        account_id=account.id_account,
+        id=str(account["id"]),
         valid_time=JWT_VALID_TIME_ACCESS,
         is_access_token=True,
     )
     reponse.refresh_token = createToken(
-        account_id=account.id_account,
+        id=str(account["id"]),
         valid_time=JWT_VALID_TIME_REFRESH,
         is_access_token=False,
     )
@@ -104,7 +106,7 @@ def generateToken(account: schemas.AccountOut):
 def generate_refresh_token(old_token: str, decoded_token: Type[schemas.AuthSchema]):
     reponse = schemas.TokenSchema
     reponse.access_token = createToken(
-        account_id=decoded_token.account_id,
+        id=decoded_token.id,
         valid_time=JWT_VALID_TIME_ACCESS,
         is_access_token=True,
     )
