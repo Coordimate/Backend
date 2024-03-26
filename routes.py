@@ -46,7 +46,7 @@ time_slots_collection = db.get_collection("time_slots")
     status_code=status.HTTP_200_OK,
     response_model_by_alias=False,
 )
-async def show_user(user: models.LoginUserModel = Body(...)):
+async def show_user(user: schemas.LoginUserSchema = Body(...)):
     print(user)
     # print(user.email)
     if (user_found := await user_collection.find_one({"email":user.email})) is not None:
@@ -93,7 +93,7 @@ async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def create_user(user: models.CreateUserModel = Body(...)):
+async def create_user(user: schemas.CreateUserSchema = Body(...)):
     user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
     new_user = await user_collection.insert_one(
         user.model_dump(by_alias=True, exclude={"id"})

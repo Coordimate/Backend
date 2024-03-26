@@ -31,6 +31,16 @@ class AuthSchema(BaseModel):
 class AccountOut(BaseModel):
     id: str
     email: EmailStr
+    
+class CreateUserSchema(BaseModel):
+    username: str
+    password: str
+    email: EmailStr
+    
+class LoginUserSchema(BaseModel):
+    email: EmailStr
+    password: str
+
 
 # ********** Token Schema **********
 
