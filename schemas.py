@@ -18,15 +18,6 @@ class RefreshTokenSchema(BaseModel):
 class AuthSchema(BaseModel):
     id: str
     is_access_token: bool
-
-# class LoginSchema(BaseModel):
-#     email: EmailStr
-#     password: str
-    
-
-# class AccountIn(BaseModel):
-#     email: EmailStr
-#     password: str
     
 class AccountOut(BaseModel):
     id: str
@@ -40,7 +31,6 @@ class CreateUserSchema(BaseModel):
 class LoginUserSchema(BaseModel):
     email: EmailStr
     password: str
-
 
 # ********** Token Schema **********
 

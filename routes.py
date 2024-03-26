@@ -79,7 +79,7 @@ async def refresh_token(token: schemas.RefreshTokenSchema = Body(...)):
     response_model=schemas.AccountOut
 )
 async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
-    user_found = await user_collection.find_one({"email":user.email})
+    user_found = await user_collection.find_one({"email": user.email})
     if user_found is None:
         raise HTTPException(status_code=404, detail="Account not found")
     return user_found
@@ -94,6 +94,9 @@ async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
     response_model_by_alias=False,
 )
 async def create_user(user: schemas.CreateUserSchema = Body(...)):
+    existing_user = await user_collection.find_one({"email": user.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User already exists")
     user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
     new_user = await user_collection.insert_one(
         user.model_dump(by_alias=True, exclude={"id"})
