@@ -35,6 +35,7 @@ db = client.coordimate
 user_collection = db.get_collection("users")
 # FIXME: once login and register are ready, time_slots are stored in user collection, not separately
 time_slots_collection = db.get_collection("time_slots")
+meetings_collection = db.get_collection("meetings")
 
 
 # ********** Authentification **********
@@ -232,3 +233,51 @@ async def delete_time_slot(id: str):
 
     raise HTTPException(status_code=404, detail=f"time_slot {id} not found")
 
+# ********** Meetings **********
+
+@app.post(
+    "/meetings/",
+    response_description="Add new meeting",
+    response_model=models.MeetingModel,
+    status_code=status.HTTP_201_CREATED,
+    response_model_by_alias=False,
+)
+async def create_meeting(meeting: schemas.CreateMeeting = Body(...)):
+    new_meeting = await meetings_collection.insert_one(
+        meeting.model_dump(by_alias=True, exclude={"id"})
+    )
+    created_meeting = await meetings_collection.find_one({"_id": new_meeting.inserted_id})
+    return created_meeting
+
+@app.get(
+    "/meetings/",
+    response_description="List all meetings",
+    response_model=schemas.MeetingCollection,
+    response_model_by_alias=False,
+)
+async def list_meetings():
+    return schemas.MeetingCollection(meetings=await meetings_collection.find().to_list(1000))
+
+@app.get(
+    "/meetings/{id}",
+    response_description="Get a single meeting",
+    response_model=models.MeetingModel,
+    response_model_by_alias=False,
+)
+async def show_meeting(id: str):
+    if (meeting := await meetings_collection.find_one({"_id": ObjectId(id)})) is not None:
+        return meeting
+    
+    raise HTTPException(status_code=404, detail=f"meeting {id} not found")
+
+@app.delete(
+    "/meetings/{id}", 
+    response_description="Delete a meeting"
+)
+async def delete_meeting(id: str):
+    delete_result = await meetings_collection.delete_one({"_id": ObjectId(id)})
+
+    if delete_result.deleted_count == 1:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    raise HTTPException(status_code=404, detail=f"meeting {id} not found")

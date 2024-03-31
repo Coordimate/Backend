@@ -32,7 +32,7 @@ class LoginUserSchema(BaseModel):
     email: EmailStr
     password: str
 
-# ********** Token Schema **********
+# ********** Time Slot Schema **********
 
 class TimeSlotCollection(BaseModel):
     time_slots: List[models.TimeSlotModel]
@@ -51,3 +51,15 @@ class UpdateTimeSlot(BaseModel):
     start: Optional[float] = None
     length: Optional[float] = None
 
+
+# ********** Meeting Schema **********
+
+class MeetingCollection(BaseModel):
+    meetings: List[models.MeetingModel]
+
+class CreateMeeting(BaseModel):
+    admin_id: str
+    group_id: str
+    title: str
+    start: str
+    description: Optional[str] = None
