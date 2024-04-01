@@ -270,6 +270,33 @@ async def show_meeting(id: str):
     
     raise HTTPException(status_code=404, detail=f"meeting {id} not found")
 
+@app.patch(
+    "/meetings/{id}",
+    response_description="Update a meeting",
+    response_model=models.MeetingModel,
+    response_model_by_alias=False,
+)
+async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
+    meeting_dict = {
+        k: v for k, v in meeting.model_dump(by_alias=True).items() if v is not None
+    }
+
+    if len(meeting_dict) >= 1:
+        update_result = await meetings_collection.find_one_and_update(
+            {"_id": ObjectId(id)},
+            {"$set": meeting_dict},
+            return_document=ReturnDocument.AFTER,
+        )
+        if update_result is not None:
+            return update_result
+        else:
+            raise HTTPException(status_code=404, detail=f"meeting {id} not found")
+
+    if (existing_meeting := await meetings_collection.find_one({"_id": id})) is not None:
+        return existing_meeting
+
+    raise HTTPException(status_code=404, detail=f"meeting {id} not found")
+
 @app.delete(
     "/meetings/{id}", 
     response_description="Delete a meeting"

@@ -63,3 +63,14 @@ class CreateMeeting(BaseModel):
     title: str
     start: str
     description: Optional[str] = None
+    needs_acceptance: bool = True
+    is_accepted: bool = False
+    
+class UpdateMeeting(BaseModel):
+    admin_id: Optional[str] = None
+    group_id: Optional[str] = None
+    title: Optional[str] = None
+    start: Optional[str] = None
+    description: Optional[str] = None
+    needs_acceptance: Optional[bool] = None
+    is_accepted: Optional[bool] = None
