@@ -276,7 +276,7 @@ async def list_meetings():
 @app.get(
     "/meetings/",
     response_description="List all meetings of a user",
-    response_model=schemas.MeetingCollection,
+    response_model=schemas.MeetingTileCollection,
     response_model_by_alias=False,
 )
 async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
@@ -286,12 +286,21 @@ async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
     meeting_invites = user_found.get("meetings", [])
     meetings = []
     for invite in meeting_invites:
-        print(invite)
+        # print(invite)
         meeting = await meetings_collection.find_one({"_id": ObjectId(invite["meeting_id"])})
-        print(meeting)
+        # print(meeting)
         if meeting is not None:
-            meetings.append(meeting)
-    return schemas.MeetingCollection(meetings=meetings)
+            meeting_tile = schemas.MeetingTile(
+                id=str(meeting["_id"]),
+                title=meeting["title"],
+                start=meeting["start"],
+                group_id=str(meeting["group_id"]),  # Assuming group_id is stored as ObjectId
+                status=invite["status"]
+            )
+            # print(meeting_tile)
+            meetings.append(meeting_tile)
+        
+    return schemas.MeetingTileCollection(meetings=meetings)
 
 @app.get(
     "/meetings/{id}",

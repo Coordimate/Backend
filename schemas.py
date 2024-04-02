@@ -74,3 +74,13 @@ class UpdateMeeting(BaseModel):
     description: Optional[str] = None
     needs_acceptance: Optional[bool] = None
     is_accepted: Optional[bool] = None
+    
+class MeetingTile(BaseModel):
+    id: str
+    title: str
+    start: str
+    group_id: str
+    status: str
+    
+class MeetingTileCollection(BaseModel):
+    meetings: List[MeetingTile]
