@@ -252,16 +252,46 @@ async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schem
         meeting.model_dump(by_alias=True, exclude={"id"})
     )
     created_meeting = await meetings_collection.find_one({"_id": new_meeting.inserted_id})
+    # If the user has no meetings yet, create an empty list
+    if user_found.get("meetings") is None:
+        user_found["meetings"] = []
+    # Add the meeting to the user's meetings list
+    user_found["meetings"].append({"meeting_id": str(created_meeting["_id"]), "status": "needs acceptance"})
+    # Update the user document with the new meetings list
+    await user_collection.update_one(
+        {"_id": user_found["_id"]},
+        {"$set": {"meetings": user_found["meetings"]}}
+    )
     return created_meeting
 
 @app.get(
-    "/meetings/",
+    "/meetings/all",
     response_description="List all meetings",
     response_model=schemas.MeetingCollection,
     response_model_by_alias=False,
 )
 async def list_meetings():
     return schemas.MeetingCollection(meetings=await meetings_collection.find().to_list(1000))
+
+@app.get(
+    "/meetings/",
+    response_description="List all meetings of a user",
+    response_model=schemas.MeetingCollection,
+    response_model_by_alias=False,
+)
+async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    if user_found is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    meeting_invites = user_found.get("meetings", [])
+    meetings = []
+    for invite in meeting_invites:
+        print(invite)
+        meeting = await meetings_collection.find_one({"_id": ObjectId(invite["meeting_id"])})
+        print(meeting)
+        if meeting is not None:
+            meetings.append(meeting)
+    return schemas.MeetingCollection(meetings=meetings)
 
 @app.get(
     "/meetings/{id}",

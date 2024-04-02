@@ -5,10 +5,14 @@ from pydantic import ConfigDict, BaseModel, Field, EmailStr
 from pydantic.functional_validators import BeforeValidator
 # from pymongo.objectid import ObjectId
 from bson import ObjectId
-
+from enum import Enum
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
+class MeetingStatus(str, Enum):
+    accepted = "accepted"
+    rejected = "rejected"
+    needs_acceptance = "needs acceptance"
 
 class MeetingModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
@@ -51,12 +55,17 @@ class TimeSlotModel(BaseModel):
             "length": 2.5
         },
     )
+    
+class MeetingInvite(BaseModel):
+    meeting_id: str = Field(..., description="ID of the meeting")
+    status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / rejected)")
 
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
     password: str = Field(...)
     email: EmailStr = Field(...)
+    meetings: List[MeetingInvite] = Field([], description="List of meetings the user is invited to")
     # schedule_link: str = Field(...)
     # allow_location_link: bool = Field(...)
     # model_config = ConfigDict(
