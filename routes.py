@@ -315,6 +315,34 @@ async def show_meeting(id: str):
     raise HTTPException(status_code=404, detail=f"meeting {id} not found")
 
 @app.patch(
+    "/invites/{id}",
+    response_description="Change status of invitation",
+    response_model=models.MeetingInvite,
+    response_model_by_alias=False,
+)
+async def change_invite_status(id: str, status: schemas.UpdateMeetingStatus = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
+    print(status)
+    print(models.MeetingStatus.__members__)
+    if (status.status not in models.MeetingStatus.__members__):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    if user_found is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    meeting = await meetings_collection.find_one({"_id": ObjectId(id)})
+    if meeting is None:
+        raise HTTPException(status_code=404, detail=f"Meeting {id} not found")
+    
+    meeting_invites = user_found.get("meetings", [])
+    for invite in meeting_invites:
+        if invite["meeting_id"] == id:
+            invite["status"] = status.status
+            await user_collection.update_one(
+                {"_id": user_found["_id"]},
+                {"$set": {"meetings": meeting_invites}}
+            )
+            return invite
+
+@app.patch(
     "/meetings/{id}",
     response_description="Update a meeting",
     response_model=models.MeetingModel,

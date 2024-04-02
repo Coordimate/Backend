@@ -11,15 +11,13 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 
 class MeetingStatus(str, Enum):
     accepted = "accepted"
-    rejected = "rejected"
+    declined = "declined"
     needs_acceptance = "needs acceptance"
 
 class MeetingModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     group_id: PyObjectId = Field(..., description="ID of the group associated with the meeting")
     admin_id: PyObjectId = Field(..., description="ID of the user who created the meeting")
-    # admin_id: str = Field(..., description="ID of the user who created the meeting")
-    # group_id: str = Field(..., description="ID of the group associated with the meeting")
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
@@ -58,7 +56,7 @@ class TimeSlotModel(BaseModel):
     
 class MeetingInvite(BaseModel):
     meeting_id: str = Field(..., description="ID of the meeting")
-    status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / rejected)")
+    status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
 
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)

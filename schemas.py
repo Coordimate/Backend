@@ -75,6 +75,9 @@ class UpdateMeeting(BaseModel):
     needs_acceptance: Optional[bool] = None
     is_accepted: Optional[bool] = None
     
+class UpdateMeetingStatus(BaseModel):
+    status: str
+    
 class MeetingTile(BaseModel):
     id: str
     title: str
