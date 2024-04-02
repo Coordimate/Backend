@@ -58,7 +58,7 @@ class MeetingCollection(BaseModel):
     meetings: List[models.MeetingModel]
 
 class CreateMeeting(BaseModel):
-    admin_id: str
+    admin_id: Optional[str] = None
     group_id: str
     title: str
     start: str

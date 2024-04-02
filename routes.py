@@ -246,6 +246,8 @@ async def delete_time_slot(id: str):
     response_model_by_alias=False,
 )
 async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    meeting.admin_id = user_found["_id"]
     new_meeting = await meetings_collection.insert_one(
         meeting.model_dump(by_alias=True, exclude={"id"})
     )
