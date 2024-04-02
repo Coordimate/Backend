@@ -80,10 +80,13 @@ async def refresh_token(token: schemas.RefreshTokenSchema = Body(...)):
     response_model=schemas.AccountOut
 )
 async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
-    user_found = await user_collection.find_one({"email": user.email})
+    print(user.id)
+    print(user.is_access_token)
+    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    print(user_found)
     if user_found is None:
         raise HTTPException(status_code=404, detail="Account not found")
-    return user_found
+    return schemas.AccountOut(id=str(user_found["_id"]), email=user_found["email"])
 
 # ********** Users **********
 
@@ -242,7 +245,7 @@ async def delete_time_slot(id: str):
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def create_meeting(meeting: schemas.CreateMeeting = Body(...)):
+async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
     new_meeting = await meetings_collection.insert_one(
         meeting.model_dump(by_alias=True, exclude={"id"})
     )
