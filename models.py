@@ -5,9 +5,37 @@ from pydantic import ConfigDict, BaseModel, Field, EmailStr
 from pydantic.functional_validators import BeforeValidator
 # from pymongo.objectid import ObjectId
 from bson import ObjectId
-
+from enum import Enum
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
+
+class MeetingStatus(str, Enum):
+    accepted = "accepted"
+    declined = "declined"
+    needs_acceptance = "needs acceptance"
+
+class MeetingModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    group_id: PyObjectId = Field(..., description="ID of the group associated with the meeting")
+    admin_id: PyObjectId = Field(..., description="ID of the user who created the meeting")
+    title: str = Field(..., description="Title of the meeting")
+    start: str = Field(..., description="Start date and time of the meeting")
+    description: Optional[str] = Field(None, description="Description of the meeting")
+    needs_acceptance: bool = Field(..., description="Whether the meeting needs to be accepted by the group members")
+    is_accepted: bool = Field(..., description="Whether the meeting has been accepted by the group members")
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str},
+        json_schema_extra={
+            "admin_id": "12345",
+            "group_id": "12345",
+            "title": "first group meeting",
+            "start": "2022-01-01T12:00:00",
+            "description": "This is the first group meeting.",
+            "needs_acceptance": True,
+            "is_accepted": False,
+        },
+    )
 
 
 class TimeSlotModel(BaseModel):
@@ -25,12 +53,17 @@ class TimeSlotModel(BaseModel):
             "length": 2.5
         },
     )
+    
+class MeetingInvite(BaseModel):
+    meeting_id: str = Field(..., description="ID of the meeting")
+    status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
 
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
     password: str = Field(...)
     email: EmailStr = Field(...)
+    meetings: List[MeetingInvite] = Field([], description="List of meetings the user is invited to")
     # schedule_link: str = Field(...)
     # allow_location_link: bool = Field(...)
     # model_config = ConfigDict(

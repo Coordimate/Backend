@@ -32,7 +32,7 @@ class LoginUserSchema(BaseModel):
     email: EmailStr
     password: str
 
-# ********** Token Schema **********
+# ********** Time Slot Schema **********
 
 class TimeSlotCollection(BaseModel):
     time_slots: List[models.TimeSlotModel]
@@ -51,3 +51,39 @@ class UpdateTimeSlot(BaseModel):
     start: Optional[float] = None
     length: Optional[float] = None
 
+
+# ********** Meeting Schema **********
+
+class MeetingCollection(BaseModel):
+    meetings: List[models.MeetingModel]
+
+class CreateMeeting(BaseModel):
+    admin_id: Optional[str] = None
+    group_id: str
+    title: str
+    start: str
+    description: Optional[str] = None
+    needs_acceptance: bool = True
+    is_accepted: bool = False
+    
+class UpdateMeeting(BaseModel):
+    admin_id: Optional[str] = None
+    group_id: Optional[str] = None
+    title: Optional[str] = None
+    start: Optional[str] = None
+    description: Optional[str] = None
+    needs_acceptance: Optional[bool] = None
+    is_accepted: Optional[bool] = None
+    
+class UpdateMeetingStatus(BaseModel):
+    status: str
+    
+class MeetingTile(BaseModel):
+    id: str
+    title: str
+    start: str
+    group_id: str
+    status: str
+    
+class MeetingTileCollection(BaseModel):
+    meetings: List[MeetingTile]

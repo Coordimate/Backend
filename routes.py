@@ -35,6 +35,7 @@ db = client.coordimate
 user_collection = db.get_collection("users")
 # FIXME: once login and register are ready, time_slots are stored in user collection, not separately
 time_slots_collection = db.get_collection("time_slots")
+meetings_collection = db.get_collection("meetings")
 
 
 # ********** Authentification **********
@@ -79,10 +80,13 @@ async def refresh_token(token: schemas.RefreshTokenSchema = Body(...)):
     response_model=schemas.AccountOut
 )
 async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
-    user_found = await user_collection.find_one({"email": user.email})
+    print(user.id)
+    print(user.is_access_token)
+    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    print(user_found)
     if user_found is None:
         raise HTTPException(status_code=404, detail="Account not found")
-    return user_found
+    return schemas.AccountOut(id=str(user_found["_id"]), email=user_found["email"])
 
 # ********** Users **********
 
@@ -232,3 +236,147 @@ async def delete_time_slot(id: str):
 
     raise HTTPException(status_code=404, detail=f"time_slot {id} not found")
 
+# ********** Meetings **********
+
+@app.post(
+    "/meetings/",
+    response_description="Add new meeting",
+    response_model=models.MeetingModel,
+    status_code=status.HTTP_201_CREATED,
+    response_model_by_alias=False,
+)
+async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    meeting.admin_id = user_found["_id"]
+    new_meeting = await meetings_collection.insert_one(
+        meeting.model_dump(by_alias=True, exclude={"id"})
+    )
+    created_meeting = await meetings_collection.find_one({"_id": new_meeting.inserted_id})
+    # If the user has no meetings yet, create an empty list
+    if user_found.get("meetings") is None:
+        user_found["meetings"] = []
+    # Add the meeting to the user's meetings list
+    user_found["meetings"].append({"meeting_id": str(created_meeting["_id"]), "status": "needs acceptance"})
+    # Update the user document with the new meetings list
+    await user_collection.update_one(
+        {"_id": user_found["_id"]},
+        {"$set": {"meetings": user_found["meetings"]}}
+    )
+    return created_meeting
+
+@app.get(
+    "/meetings/all",
+    response_description="List all meetings",
+    response_model=schemas.MeetingCollection,
+    response_model_by_alias=False,
+)
+async def list_meetings():
+    return schemas.MeetingCollection(meetings=await meetings_collection.find().to_list(1000))
+
+@app.get(
+    "/meetings/",
+    response_description="List all meetings of a user",
+    response_model=schemas.MeetingTileCollection,
+    response_model_by_alias=False,
+)
+async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    if user_found is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    meeting_invites = user_found.get("meetings", [])
+    meetings = []
+    for invite in meeting_invites:
+        # print(invite)
+        meeting = await meetings_collection.find_one({"_id": ObjectId(invite["meeting_id"])})
+        # print(meeting)
+        if meeting is not None:
+            meeting_tile = schemas.MeetingTile(
+                id=str(meeting["_id"]),
+                title=meeting["title"],
+                start=meeting["start"],
+                group_id=str(meeting["group_id"]),  # Assuming group_id is stored as ObjectId
+                status=invite["status"]
+            )
+            # print(meeting_tile)
+            meetings.append(meeting_tile)
+        
+    return schemas.MeetingTileCollection(meetings=meetings)
+
+@app.get(
+    "/meetings/{id}",
+    response_description="Get a single meeting",
+    response_model=models.MeetingModel,
+    response_model_by_alias=False,
+)
+async def show_meeting(id: str):
+    if (meeting := await meetings_collection.find_one({"_id": ObjectId(id)})) is not None:
+        return meeting
+    
+    raise HTTPException(status_code=404, detail=f"meeting {id} not found")
+
+@app.patch(
+    "/invites/{id}",
+    response_description="Change status of invitation",
+    response_model=models.MeetingInvite,
+    response_model_by_alias=False,
+)
+async def change_invite_status(id: str, status: schemas.UpdateMeetingStatus = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
+    print(status)
+    print(models.MeetingStatus.__members__)
+    if (status.status not in models.MeetingStatus.__members__):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    if user_found is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    meeting = await meetings_collection.find_one({"_id": ObjectId(id)})
+    if meeting is None:
+        raise HTTPException(status_code=404, detail=f"Meeting {id} not found")
+    
+    meeting_invites = user_found.get("meetings", [])
+    for invite in meeting_invites:
+        if invite["meeting_id"] == id:
+            invite["status"] = status.status
+            await user_collection.update_one(
+                {"_id": user_found["_id"]},
+                {"$set": {"meetings": meeting_invites}}
+            )
+            return invite
+
+@app.patch(
+    "/meetings/{id}",
+    response_description="Update a meeting",
+    response_model=models.MeetingModel,
+    response_model_by_alias=False,
+)
+async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
+    meeting_dict = {
+        k: v for k, v in meeting.model_dump(by_alias=True).items() if v is not None
+    }
+
+    if len(meeting_dict) >= 1:
+        update_result = await meetings_collection.find_one_and_update(
+            {"_id": ObjectId(id)},
+            {"$set": meeting_dict},
+            return_document=ReturnDocument.AFTER,
+        )
+        if update_result is not None:
+            return update_result
+        else:
+            raise HTTPException(status_code=404, detail=f"meeting {id} not found")
+
+    if (existing_meeting := await meetings_collection.find_one({"_id": id})) is not None:
+        return existing_meeting
+
+    raise HTTPException(status_code=404, detail=f"meeting {id} not found")
+
+@app.delete(
+    "/meetings/{id}", 
+    response_description="Delete a meeting"
+)
+async def delete_meeting(id: str):
+    delete_result = await meetings_collection.delete_one({"_id": ObjectId(id)})
+
+    if delete_result.deleted_count == 1:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    raise HTTPException(status_code=404, detail=f"meeting {id} not found")
