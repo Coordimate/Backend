@@ -408,11 +408,3 @@ async def get_user(user_id: str) -> dict:
         raise HTTPException(status_code=404, detail=f"user {user_id} not found")
     return user_found
 
-
-async def update_array_element():
-    pass
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
