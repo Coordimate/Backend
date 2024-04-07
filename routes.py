@@ -33,8 +33,6 @@ app.add_middleware(
 client = motor.motor_asyncio.AsyncIOMotorClient(os.environ["MONGODB_URL"])
 db = client.coordimate
 user_collection = db.get_collection("users")
-# FIXME: once login and register are ready, time_slots are stored in user collection, not separately
-time_slots_collection = db.get_collection("time_slots")
 meetings_collection = db.get_collection("meetings")
 
 
@@ -48,8 +46,6 @@ meetings_collection = db.get_collection("meetings")
     response_model_by_alias=False,
 )
 async def login(user: schemas.LoginUserSchema = Body(...)):
-    print(user)
-    # print(user.email)
     if (user_found := await user_collection.find_one({"email":user.email})) is not None:
         user_found["id"] = user_found.pop("_id")
         if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
@@ -80,10 +76,7 @@ async def refresh_token(token: schemas.RefreshTokenSchema = Body(...)):
     response_model=schemas.AccountOut
 )
 async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
-    print(user.id)
-    print(user.is_access_token)
     user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
-    print(user_found)
     if user_found is None:
         raise HTTPException(status_code=404, detail="Account not found")
     return schemas.AccountOut(id=str(user_found["_id"]), email=user_found["email"])
@@ -177,64 +170,92 @@ async def delete_user(id: str):
     response_model=schemas.TimeSlotCollection,
     response_model_by_alias=False,
 )
-async def list_time_slots():
-    return schemas.TimeSlotCollection(time_slots=await time_slots_collection.find().to_list(1000))
+async def list_time_slots(user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
+    schedule = user_found.get("schedule")
+    if schedule is None:
+        return schemas.TimeSlotCollection(time_slots=[])
+    return schemas.TimeSlotCollection(time_slots=schedule)
 
 
 @app.post(
     "/time_slots/",
     response_description="Add new time slot",
-    response_model=models.TimeSlotModel,
+    response_model=models.TimeSlot,
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def create_time_slot(time_slot: schemas.CreateTimeSlot = Body(...)):
-    new_time_slot = await time_slots_collection.insert_one(
-        time_slot.model_dump(by_alias=True, exclude={"id"})
+async def create_time_slot(
+        time_slot: schemas.CreateTimeSlot = Body(...),
+        user: schemas.AuthSchema = Depends(JWTBearer())
+    ):
+    user_found = await get_user(user.id)
+    if not user_found.get("schedule"):
+        user_found["schedule"] = []
+        new_id = -1
+    else:
+        new_id = user_found["schedule"][-1]["_id"]
+
+    new_time_slot = time_slot.model_dump(by_alias=True)
+    new_time_slot["_id"] = new_id + 1
+    user_found["schedule"].append(new_time_slot)
+
+    await user_collection.update_one(
+        {"_id": user_found["_id"]},
+        {"$set": {"schedule": user_found["schedule"]}}
     )
-    created_time_slot = await time_slots_collection.find_one({"_id": new_time_slot.inserted_id})
-    return created_time_slot
+    return new_time_slot
 
 
 @app.patch(
-    "/time_slots/{id}",
+    "/time_slots/{slot_id}",
     response_description="Update a time slot",
-    response_model=models.TimeSlotModel,
+    response_model=models.TimeSlot,
     response_model_by_alias=False,
 )
-async def update_time_slot(id: str, time_slot: schemas.UpdateTimeSlot = Body(...)):
+async def update_time_slot(
+        slot_id: int,
+        time_slot: schemas.UpdateTimeSlot = Body(...),
+        user: schemas.AuthSchema = Depends(JWTBearer())
+    ):
+    user_found = await get_user(user.id)
     time_slot_dict = {
         k: v for k, v in time_slot.model_dump(by_alias=True).items() if v is not None
     }
+    schedule = user_found['schedule']
+    for i in range(len(schedule)):
+        if schedule[i]["_id"] == slot_id:
+            schedule[i].update(time_slot_dict)
+            break
 
-    if len(time_slot_dict) >= 1:
-        update_result = await time_slots_collection.find_one_and_update(
-            {"_id": ObjectId(id)},
-            {"$set": time_slot_dict},
-            return_document=ReturnDocument.AFTER,
-        )
-        if update_result is not None:
-            return update_result
-        else:
-            raise HTTPException(status_code=404, detail=f"time_slot {id} not found")
+    update_result = await user_collection.update_one(
+        {'_id': ObjectId(user_found['_id'])},
+        {'$set': {'schedule': schedule}}
+    )
+    if update_result.modified_count != 1:
+        raise HTTPException(status_code=404, detail=f"time_slot {slot_id} not found")
 
-    if (existing_time_slot := await time_slots_collection.find_one({"_id": id})) is not None:
-        return existing_time_slot
-
-    raise HTTPException(status_code=404, detail=f"time_slot {id} not found")
+    user_found = await get_user(user.id)
+    for i in range(len(schedule)):
+        if schedule[i]["_id"] == slot_id:
+            return schedule[i]
 
 
 @app.delete(
-    "/time_slots/{id}", 
+    "/time_slots/{slot_id}", 
     response_description="Delete a time slot"
 )
-async def delete_time_slot(id: str):
-    delete_result = await time_slots_collection.delete_one({"_id": ObjectId(id)})
+async def delete_time_slot(slot_id: int, user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
 
-    if delete_result.deleted_count == 1:
+    delete_result = await user_collection.update_one(
+        {'_id': ObjectId(user_found['_id'])},
+        {'$pull': {'schedule': {'_id': slot_id}}}
+    )
+    if delete_result.modified_count == 1:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    raise HTTPException(status_code=404, detail=f"time_slot {id} not found")
+    raise HTTPException(status_code=404, detail=f'time_slot {id} not found')
 
 # ********** Meetings **********
 
@@ -246,12 +267,14 @@ async def delete_time_slot(id: str):
     response_model_by_alias=False,
 )
 async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
-    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    user_found = await get_user(user.id)
     meeting.admin_id = user_found["_id"]
     new_meeting = await meetings_collection.insert_one(
         meeting.model_dump(by_alias=True, exclude={"id"})
     )
     created_meeting = await meetings_collection.find_one({"_id": new_meeting.inserted_id})
+    if created_meeting is None:
+        raise HTTPException(status_code=500, detail="Error creating a meeting")
     # If the user has no meetings yet, create an empty list
     if user_found.get("meetings") is None:
         user_found["meetings"] = []
@@ -286,9 +309,7 @@ async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
     meeting_invites = user_found.get("meetings", [])
     meetings = []
     for invite in meeting_invites:
-        # print(invite)
         meeting = await meetings_collection.find_one({"_id": ObjectId(invite["meeting_id"])})
-        # print(meeting)
         if meeting is not None:
             meeting_tile = schemas.MeetingTile(
                 id=str(meeting["_id"]),
@@ -297,7 +318,6 @@ async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
                 group_id=str(meeting["group_id"]),  # Assuming group_id is stored as ObjectId
                 status=invite["status"]
             )
-            # print(meeting_tile)
             meetings.append(meeting_tile)
         
     return schemas.MeetingTileCollection(meetings=meetings)
@@ -321,8 +341,6 @@ async def show_meeting(id: str):
     response_model_by_alias=False,
 )
 async def change_invite_status(id: str, status: schemas.UpdateMeetingStatus = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
-    print(status)
-    print(models.MeetingStatus.__members__)
     if (status.status not in models.MeetingStatus.__members__):
         raise HTTPException(status_code=400, detail="Invalid status")
     user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
@@ -380,3 +398,21 @@ async def delete_meeting(id: str):
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     raise HTTPException(status_code=404, detail=f"meeting {id} not found")
+
+
+# ********** Utils **********
+
+async def get_user(user_id: str) -> dict:
+    user_found = await user_collection.find_one({"_id": ObjectId(user_id)})
+    if user_found is None:
+        raise HTTPException(status_code=404, detail=f"user {user_id} not found")
+    return user_found
+
+
+async def update_array_element():
+    pass
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
