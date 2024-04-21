@@ -35,7 +35,7 @@ class LoginUserSchema(BaseModel):
 # ********** Time Slot Schema **********
 
 class TimeSlotCollection(BaseModel):
-    time_slots: List[models.TimeSlotModel]
+    time_slots: List[models.TimeSlot]
 
 
 class CreateTimeSlot(BaseModel):

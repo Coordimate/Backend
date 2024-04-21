@@ -38,21 +38,11 @@ class MeetingModel(BaseModel):
     )
 
 
-class TimeSlotModel(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+class TimeSlot(BaseModel):
+    id: int = Field(..., alias="_id") #Optional[PyObjectId] = Field(alias="_id", default=None)
     day: int = Field(...)
     start: float = Field(...)
     length: float = Field(...)
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        json_encoders={ObjectId: str},
-        json_schema_extra={
-            "is_meeting": False,
-            "day": 1,
-            "start": 9.0,
-            "length": 2.5
-        },
-    )
     
 class MeetingInvite(BaseModel):
     meeting_id: str = Field(..., description="ID of the meeting")
@@ -64,6 +54,7 @@ class UserModel(BaseModel):
     password: str = Field(...)
     email: EmailStr = Field(...)
     meetings: List[MeetingInvite] = Field([], description="List of meetings the user is invited to")
+    schedule: List[TimeSlot] = Field([], description="List of busy time slots in the user's schedule")
     # schedule_link: str = Field(...)
     # allow_location_link: bool = Field(...)
     # model_config = ConfigDict(
