@@ -149,3 +149,8 @@ class UpdateUserModel(BaseModel):
 
 class UserCollection(BaseModel):
     users: List[UserModel]
+
+class GroupModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str = Field(...)
+    description: str = Field(...)

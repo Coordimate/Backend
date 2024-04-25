@@ -87,3 +87,9 @@ class MeetingTile(BaseModel):
     
 class MeetingTileCollection(BaseModel):
     meetings: List[MeetingTile]
+
+# ********** Groups **********
+
+class CreateGroupSchema(BaseModel):
+    name: str
+    description: str

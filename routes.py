@@ -408,3 +408,19 @@ async def get_user(user_id: str) -> dict:
         raise HTTPException(status_code=404, detail=f"user {user_id} not found")
     return user_found
 
+# ********** Groups **********
+
+@app.post(
+    "/groups/",
+    response_description="Create new group",
+    response_model=models.GroupModel,
+    status_code=status.HTTP_201_CREATED,
+    response_model_by_alias=False,
+)
+async def register(group: schemas.CreateGroupSchema = Body(...)):
+
+    new_group = await groups_collection.insert_one(
+        group.model_dump(by_alias=True, exclude={"id"})
+    )
+    created_group = await groups_collection.find_one({"_id": new_group.inserted_id})
+    return created_group
