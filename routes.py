@@ -34,6 +34,7 @@ client = motor.motor_asyncio.AsyncIOMotorClient(os.environ["MONGODB_URL"])
 db = client.coordimate
 user_collection = db.get_collection("users")
 meetings_collection = db.get_collection("meetings")
+groups_collection = db.get_collection("groups")
 
 
 # ********** Authentification **********
