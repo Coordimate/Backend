@@ -34,7 +34,7 @@ client = motor.motor_asyncio.AsyncIOMotorClient(os.environ["MONGODB_URL"])
 db = client.coordimate
 user_collection = db.get_collection("users")
 meetings_collection = db.get_collection("meetings")
-groups_collection = db.get_collection("groups")
+group_collection = db.get_collection("groups")
 
 
 # ********** Authentification **********
@@ -418,10 +418,72 @@ async def get_user(user_id: str) -> dict:
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def register(group: schemas.CreateGroupSchema = Body(...)):
+async def createGroup(group: schemas.CreateGroupSchema = Body(...)):
 
-    new_group = await groups_collection.insert_one(
+    new_group = await group_collection.insert_one(
         group.model_dump(by_alias=True, exclude={"id"})
     )
-    created_group = await groups_collection.find_one({"_id": new_group.inserted_id})
+    created_group = await group_collection.find_one({"_id": new_group.inserted_id})
     return created_group
+
+@app.get(
+    "/groups/",
+    response_description="List all groups",
+    response_model=models.GroupCollection,
+    response_model_by_alias=False,
+)
+async def list_groups():
+    return models.GroupCollection(groups=await group_collection.find().to_list(1000))
+
+@app.get(
+    "/groups/{id}",
+    response_description="Get a single group",
+    response_model=models.GroupModel,
+    response_model_by_alias=False,
+)
+async def show_group(id: str):
+    if (group := await group_collection.find_one({"_id": ObjectId(id)})) is not None:
+        return group
+
+    raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+
+@app.put(
+    "/groups/{id}",
+    response_description="Update a group",
+    response_model=models.GroupModel,
+    response_model_by_alias=False,
+)
+async def update_group(id: str, group: models.UpdateGroupModel = Body(...)):
+    group_dict = {
+        k: v for k, v in group.model_dump(by_alias=True).items() if v is not None
+    }
+
+    if len(group_dict) >= 1:
+        update_result = await group_collection.find_one_and_update(
+            {"_id": ObjectId(id)},
+            {"$set": group_dict},
+            return_document=ReturnDocument.AFTER,
+        )
+        if update_result is not None:
+            return update_result
+        else:
+            raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+    if (existing_group := await group_collection.find_one({"_id": id})) is not None:
+        return existing_group
+
+    raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+
+@app.delete(
+    "/groups/{id}", 
+    response_description="Delete a group"
+)
+async def delete_group(id: str):
+    delete_result = await group_collection.delete_one({"_id": ObjectId(id)})
+
+    if delete_result.deleted_count == 1:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    raise HTTPException(status_code=404, detail=f"group {id} not found")

@@ -150,7 +150,16 @@ class UpdateUserModel(BaseModel):
 class UserCollection(BaseModel):
     users: List[UserModel]
 
+
 class GroupModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     name: str = Field(...)
     description: str = Field(...)
+
+#to list groups for each particular user. needs more by working with user ID's
+class GroupCollection(BaseModel):
+    groups: List[GroupModel]
+
+class UpdateGroupModel(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
