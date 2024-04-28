@@ -88,6 +88,18 @@ class MeetingTile(BaseModel):
 class MeetingTileCollection(BaseModel):
     meetings: List[MeetingTile]
 
+
+# ********** Agenda Schema **********
+
+class AgendaPointCollection(BaseModel):
+    agenda: List[models.AgendaPoint]
+
+
+class CreateAgendaPoint(BaseModel):
+    text: str
+    level: int
+
+
 # ********** Groups **********
 
 class CreateGroupSchema(BaseModel):
