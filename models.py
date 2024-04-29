@@ -15,7 +15,6 @@ class MeetingStatus(str, Enum):
     needs_acceptance = "needs acceptance"
 
 class AgendaPoint(BaseModel):
-    id: int = Field(..., alias="_id")
     text: str = Field(...)
     level: int = Field(..., description="Level of indentation of the agenda point in the list")
 

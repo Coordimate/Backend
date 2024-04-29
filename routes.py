@@ -435,12 +435,8 @@ async def create_agenda_point(
 
     if "agenda" not in meeting:
         meeting["agenda"] = []
-        new_id = 0
-    else:
-        new_id = meeting["agenda"][-1]["_id"] + 1
 
     new_agenda_point = agenda_point.model_dump(by_alias=True)
-    new_agenda_point["_id"] = new_id
     meeting["agenda"].append(new_agenda_point)
 
     await meetings_collection.update_one(
@@ -469,7 +465,7 @@ async def update_agenda(
         {'$set': {'agenda': agenda.model_dump()['agenda']}}
     )
 
-    meeting = await meetings_collection.find_one({"_id": ObjectId(id)})
+    meeting = await get_meeting(id)
     return schemas.AgendaPointCollection(agenda=meeting['agenda'])
 
 
@@ -477,18 +473,20 @@ async def update_agenda(
     "/meetings/{id}/agenda/{point_id}", 
     response_description="Delete an agenda point"
 )
-async def delete_agenda_point(id: str, id_point: int, user: schemas.AuthSchema = Depends(JWTBearer())):
+async def delete_agenda_point(id: str, point_id: int, user: schemas.AuthSchema = Depends(JWTBearer())):
     _ = await get_user(user.id)
     meeting = await get_meeting(id)
 
-    delete_result = await meetings_collection.update_one(
-        {'_id': ObjectId(meeting['_id'])},
-        {'$pull': {'agenda': {'_id': id_point}}}
-    )
-    if delete_result.modified_count == 1:
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    if point_id < 0 or point_id >= len(meeting['agenda']):
+        raise HTTPException(status_code=404, detail=f'agenda_point {id} not found')
+    agenda = meeting['agenda']
+    agenda.pop(point_id)
 
-    raise HTTPException(status_code=404, detail=f'agenda_point {id} not found')
+    _ = await meetings_collection.update_one(
+        {'_id': ObjectId(meeting['_id'])},
+        {'$set': {'agenda': agenda}}
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ********** Utils **********
