@@ -14,6 +14,10 @@ class MeetingStatus(str, Enum):
     declined = "declined"
     needs_acceptance = "needs acceptance"
 
+class AgendaPoint(BaseModel):
+    text: str = Field(...)
+    level: int = Field(..., description="Level of indentation of the agenda point in the list")
+
 class MeetingModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     group_id: PyObjectId = Field(..., description="ID of the group associated with the meeting")
@@ -23,6 +27,7 @@ class MeetingModel(BaseModel):
     description: Optional[str] = Field(None, description="Description of the meeting")
     needs_acceptance: bool = Field(..., description="Whether the meeting needs to be accepted by the group members")
     is_accepted: bool = Field(..., description="Whether the meeting has been accepted by the group members")
+    agenda: List[AgendaPoint] = Field([], description="List of text points - agenda for the meeting")
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str},
