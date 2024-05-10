@@ -21,8 +21,6 @@ class MeetingModel(BaseModel):
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
-    needs_acceptance: bool = Field(..., description="Whether the meeting needs to be accepted by the group members")
-    is_accepted: bool = Field(..., description="Whether the meeting has been accepted by the group members")
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str},

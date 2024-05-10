@@ -247,6 +247,8 @@ async def delete_time_slot(id: str):
 )
 async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
     user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
+    if user_found is None:
+        raise HTTPException(status_code=404, detail="Account not found")
     meeting.admin_id = user_found["_id"]
     new_meeting = await meetings_collection.insert_one(
         meeting.model_dump(by_alias=True, exclude={"id"})
@@ -256,7 +258,7 @@ async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schem
     if user_found.get("meetings") is None:
         user_found["meetings"] = []
     # Add the meeting to the user's meetings list
-    user_found["meetings"].append({"meeting_id": str(created_meeting["_id"]), "status": "needs acceptance"})
+    user_found["meetings"].append({"meeting_id": str(created_meeting["_id"]), "status": models.MeetingStatus.needs_acceptance.value})
     # Update the user document with the new meetings list
     await user_collection.update_one(
         {"_id": user_found["_id"]},
