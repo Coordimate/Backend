@@ -35,7 +35,7 @@ class LoginUserSchema(BaseModel):
 # ********** Time Slot Schema **********
 
 class TimeSlotCollection(BaseModel):
-    time_slots: List[models.TimeSlotModel]
+    time_slots: List[models.TimeSlot]
 
 
 class CreateTimeSlot(BaseModel):
@@ -87,3 +87,9 @@ class MeetingTile(BaseModel):
     
 class MeetingTileCollection(BaseModel):
     meetings: List[MeetingTile]
+
+# ********** Groups **********
+
+class CreateGroupSchema(BaseModel):
+    name: str
+    description: str
