@@ -18,6 +18,10 @@ class Participant(BaseModel): #TODO: user_id as PyObjectId
     user_id: PyObjectId = Field(..., description="ID of the user")
     status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
 
+class AgendaPoint(BaseModel):
+    text: str = Field(...)
+    level: int = Field(..., description="Level of indentation of the agenda point in the list")
+
 class MeetingModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     group_id: PyObjectId = Field(..., description="ID of the group associated with the meeting")
@@ -26,6 +30,7 @@ class MeetingModel(BaseModel):
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
     participants: List[Participant] = Field([], description="List of participants in the meeting")
+    agenda: List[AgendaPoint] = Field([], description="List of text points - agenda for the meeting")
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str},

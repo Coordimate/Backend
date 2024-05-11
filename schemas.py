@@ -113,6 +113,18 @@ class ParticipantInviteSchema(BaseModel):
     status: str
     
 
+
+# ********** Agenda Schema **********
+
+class AgendaPointCollection(BaseModel):
+    agenda: List[models.AgendaPoint]
+
+
+class CreateAgendaPoint(BaseModel):
+    text: str
+    level: int
+
+
 # ********** Groups **********
 
 class CreateGroupSchema(BaseModel):
