@@ -14,6 +14,10 @@ class MeetingStatus(str, Enum):
     declined = "declined"
     needs_acceptance = "needs acceptance"
 
+class Participant(BaseModel): #TODO: user_id as PyObjectId
+    user_id: PyObjectId = Field(..., description="ID of the user")
+    status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
+
 class MeetingModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     group_id: PyObjectId = Field(..., description="ID of the group associated with the meeting")
@@ -21,6 +25,7 @@ class MeetingModel(BaseModel):
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
+    participants: List[Participant] = Field([], description="List of participants in the meeting")
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str},
@@ -29,9 +34,7 @@ class MeetingModel(BaseModel):
             "group_id": "12345",
             "title": "first group meeting",
             "start": "2022-01-01T12:00:00",
-            "description": "This is the first group meeting.",
-            "needs_acceptance": True,
-            "is_accepted": False,
+            "description": "This is the first group meeting."
         },
     )
 
@@ -43,7 +46,7 @@ class TimeSlot(BaseModel):
     length: float = Field(...)
     
 class MeetingInvite(BaseModel):
-    meeting_id: str = Field(..., description="ID of the meeting")
+    meeting_id: PyObjectId = Field(..., description="ID of the meeting")
     status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
 
 class UserModel(BaseModel):
