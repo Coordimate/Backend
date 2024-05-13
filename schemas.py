@@ -96,7 +96,8 @@ class MeetingDetails(BaseModel):
     start: str
     description: str
     group_id: str
-    admin_id: str
+    group_name: str
+    admin: ParticipantSchema
     participants: List[ParticipantSchema]
     status: str
     

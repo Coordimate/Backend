@@ -356,13 +356,19 @@ async def show_meeting_details(id: str, user: schemas.AuthSchema = Depends(JWTBe
             # meeting_participant = Participant
         participant_user = await get_user(str(meeting_participant["user_id"]))
             # participant_user = UserModel
-        if participant_user is not None:
-            participant = schemas.ParticipantSchema(
-                user_id=str(participant_user["_id"]),
-                user_username=participant_user["username"],
-                status=meeting_participant["status"]
-            )
-            participants.append(participant)
+        participant = schemas.ParticipantSchema(
+            user_id=str(participant_user["_id"]),
+            user_username=participant_user["username"],
+            status=meeting_participant["status"]
+        )
+        participants.append(participant)
+        
+    admin_user = await get_user(str(meeting["admin_id"]))
+    admin = schemas.ParticipantSchema(
+        user_id=str(admin_user["_id"]),
+        user_username=admin_user["username"],
+        status=models.MeetingStatus.accepted.value
+    )
                 
     meeting_invites = user_found.get("meetings", [])
     for invite in meeting_invites:
@@ -372,7 +378,8 @@ async def show_meeting_details(id: str, user: schemas.AuthSchema = Depends(JWTBe
                 title=meeting["title"],
                 start=meeting["start"],
                 group_id=str(meeting["group_id"]),
-                admin_id=str(meeting["admin_id"]),
+                group_name=str(meeting["group_id"]), #TODO: get group name
+                admin=admin,
                 description=meeting["description"],
                 participants=participants,
                 status=invite["status"]
