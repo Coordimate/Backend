@@ -77,9 +77,7 @@ async def refresh_token(token: schemas.RefreshTokenSchema = Body(...)):
     response_model=schemas.AccountOut
 )
 async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
-    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
-    if user_found is None:
-        raise HTTPException(status_code=404, detail="Account not found")
+    user_found = await get_user(user.id)
     return schemas.AccountOut(id=str(user_found["_id"]), email=user_found["email"])
 
 # ********** Users **********
@@ -118,10 +116,8 @@ async def list_users():
     response_model_by_alias=False,
 )
 async def show_user(id: str):
-    if (user := await user_collection.find_one({"_id": ObjectId(id)})) is not None:
-        return user
-
-    raise HTTPException(status_code=404, detail=f"user {id} not found")
+    user = await get_user(id)
+    return user
 
 @app.put(
     "/users/{id}",
@@ -144,20 +140,24 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
             return update_result
         else:
             raise HTTPException(status_code=404, detail=f"user {id} not found")
-
-    if (existing_user := await user_collection.find_one({"_id": id})) is not None:
-        return existing_user
-
-    raise HTTPException(status_code=404, detail=f"user {id} not found")
-
+    existing_user = await get_user(id)
+    return existing_user
 
 @app.delete(
     "/users/{id}", 
     response_description="Delete a user"
 )
 async def delete_user(id: str):
+    user = await get_user(id)
+    user_meetings = user.get("meetings", [])
+    for meeting in user_meetings:
+        for participant in meeting.get("participants", []):
+            delete_res = await meetings_collection.update_one(
+                {"_id": ObjectId(meeting["meeting_id"])},
+                {"$pull": {"participants": {"user_id": participant["user_id"]}}}
+            )
+            print(delete_res.modified_count)
     delete_result = await user_collection.delete_one({"_id": ObjectId(id)})
-
     if delete_result.deleted_count == 1:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
