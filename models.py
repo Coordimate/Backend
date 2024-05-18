@@ -58,6 +58,7 @@ class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
     password: str = Field(...)
+    fcm_token: str = Field('')
     email: EmailStr = Field(...)
     meetings: List[MeetingInvite] = Field([], description="List of meetings the user is invited to")
     schedule: List[TimeSlot] = Field([], description="List of busy time slots in the user's schedule")

@@ -10,6 +10,7 @@ from bson import ObjectId
 
 import models
 import schemas
+import firebase_admin
 
 import bcrypt
 import auth
@@ -19,6 +20,7 @@ from auth import JWTBearer
 load_dotenv()
 
 
+firebase_app = firebase_admin.initialize_app()
 app = FastAPI(
     title="Coordimate Backend API",
     summary="Backend of the Coordimate mobile application that fascilitates group meetings",
@@ -79,6 +81,18 @@ async def refresh_token(token: schemas.RefreshTokenSchema = Body(...)):
 async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
     user_found = await get_user(user.id)
     return schemas.AccountOut(id=str(user_found["_id"]), email=user_found["email"])
+
+@app.post(
+    "/enable_notifications",
+    response_description="Enable notifications for user",
+    response_model_by_alias=False,
+)
+async def enable_notifications(notifications: schemas.NotificationsSchema, user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
+    user_found['fcm_token'] = notifications.fcm_token
+    await user_collection.find_one_and_update({"_id": user_found['_id']}, {"$set": user_found})
+    return {'result': 'ok'}
+
 
 # ********** Users **********
 
