@@ -77,9 +77,7 @@ async def refresh_token(token: schemas.RefreshTokenSchema = Body(...)):
     response_model=schemas.AccountOut
 )
 async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
-    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
-    if user_found is None:
-        raise HTTPException(status_code=404, detail="Account not found")
+    user_found = await get_user(user.id)
     return schemas.AccountOut(id=str(user_found["_id"]), email=user_found["email"])
 
 # ********** Users **********
@@ -118,10 +116,8 @@ async def list_users():
     response_model_by_alias=False,
 )
 async def show_user(id: str):
-    if (user := await user_collection.find_one({"_id": ObjectId(id)})) is not None:
-        return user
-
-    raise HTTPException(status_code=404, detail=f"user {id} not found")
+    user = await get_user(id)
+    return user
 
 @app.put(
     "/users/{id}",
@@ -144,20 +140,24 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
             return update_result
         else:
             raise HTTPException(status_code=404, detail=f"user {id} not found")
-
-    if (existing_user := await user_collection.find_one({"_id": id})) is not None:
-        return existing_user
-
-    raise HTTPException(status_code=404, detail=f"user {id} not found")
-
+    existing_user = await get_user(id)
+    return existing_user
 
 @app.delete(
     "/users/{id}", 
     response_description="Delete a user"
 )
 async def delete_user(id: str):
+    user = await get_user(id)
+    user_meetings = user.get("meetings", [])
+    for meeting in user_meetings:
+        for participant in meeting.get("participants", []):
+            delete_res = await meetings_collection.update_one(
+                {"_id": ObjectId(meeting["meeting_id"])},
+                {"$pull": {"participants": {"user_id": participant["user_id"]}}}
+            )
+            print(delete_res.modified_count)
     delete_result = await user_collection.delete_one({"_id": ObjectId(id)})
-
     if delete_result.deleted_count == 1:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -269,7 +269,7 @@ async def delete_time_slot(slot_id: int, user: schemas.AuthSchema = Depends(JWTB
 )
 async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
     user_found = await get_user(user.id)
-    meeting.admin_id = user_found["_id"]
+    meeting.admin_id = str(user_found["_id"])
     new_meeting = await meetings_collection.insert_one(
         meeting.model_dump(by_alias=True, exclude={"id"})
     )
@@ -280,11 +280,17 @@ async def create_meeting(meeting: schemas.CreateMeeting = Body(...), user: schem
     if user_found.get("meetings") is None:
         user_found["meetings"] = []
     # Add the meeting to the user's meetings list
-    user_found["meetings"].append({"meeting_id": str(created_meeting["_id"]), "status": "needs acceptance"})
+    user_found["meetings"].append({"meeting_id": str(created_meeting["_id"]), "status": models.MeetingStatus.needs_acceptance.value})
     # Update the user document with the new meetings list
     await user_collection.update_one(
         {"_id": user_found["_id"]},
         {"$set": {"meetings": user_found["meetings"]}}
+    )
+    # Add yourself as a participant
+    created_meeting["participants"] = [{"user_id": str(user_found["_id"]), "status": models.MeetingStatus.needs_acceptance.value}]
+    await meetings_collection.update_one(
+        {"_id": created_meeting["_id"]},
+        {"$set": {"participants": created_meeting["participants"]}}
     )
     return created_meeting
 
@@ -304,9 +310,7 @@ async def list_meetings():
     response_model_by_alias=False,
 )
 async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
-    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
-    if user_found is None:
-        raise HTTPException(status_code=404, detail="Account not found")
+    user_found = await get_user(user.id)
     meeting_invites = user_found.get("meetings", [])
     meetings = []
     for invite in meeting_invites:
@@ -335,6 +339,81 @@ async def show_meeting(id: str):
     
     raise HTTPException(status_code=404, detail=f"meeting {id} not found")
 
+@app.get(
+    "/meetings/{id}/details",
+    response_description="Get details of a single meeting",
+    response_model=schemas.MeetingDetails,
+    response_model_by_alias=False,
+)
+async def show_meeting_details(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
+    meeting = await get_meeting(id)
+    # meeting = MeetingModel
+    meeting_participants = meeting.get("participants", [])
+    participants = []
+        # meeting_participants = List[Participant]
+    for meeting_participant in meeting_participants:
+            # meeting_participant = Participant
+        participant_user = await get_user(str(meeting_participant["user_id"]))
+            # participant_user = UserModel
+        participant = schemas.ParticipantSchema(
+            user_id=str(participant_user["_id"]),
+            user_username=participant_user["username"],
+            status=meeting_participant["status"]
+        )
+        participants.append(participant)
+        
+    admin_user = await get_user(str(meeting["admin_id"]))
+    admin = schemas.ParticipantSchema(
+        user_id=str(admin_user["_id"]),
+        user_username=admin_user["username"],
+        status=models.MeetingStatus.accepted.value
+    )
+                
+    meeting_invites = user_found.get("meetings", [])
+    for invite in meeting_invites:
+        if (invite["meeting_id"] == id):
+            meeting_tile = schemas.MeetingDetails(
+                id=str(meeting["_id"]),
+                title=meeting["title"],
+                start=meeting["start"],
+                group_id=str(meeting["group_id"]),
+                group_name=str(meeting["group_id"]), #TODO: get group name
+                admin=admin,
+                description=meeting["description"],
+                participants=participants,
+                status=invite["status"]
+            )
+            return meeting_tile
+    
+@app.patch(
+    "/meetings/{id}/change_participant_status",
+    response_description="Change status of participant in a meeting",
+    response_model=schemas.ParticipantInviteSchema,
+    response_model_by_alias=False,
+)
+async def change_participant_status(id: str, participant: schemas.UpdateParticipantStatus = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
+    # user here is the admin
+    await get_user(participant.id)
+    await get_meeting(id)
+    check_status(participant.status)
+    await meeting_in_user(participant.id, id, participant.status)
+    await participant_in_meeting(participant.id, id, participant.status)
+    return schemas.ParticipantInviteSchema(meeting_id=id, user_id=participant.id, status=participant.status)   
+
+@app.post(
+    "/meetings/{id}/invite",
+    response_description="Invite user to a meeting",
+    response_model=schemas.ParticipantInviteSchema,
+    response_model_by_alias=False,
+)
+async def invite(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
+    await get_user(user.id)
+    await get_meeting(id)
+    await participant_in_meeting(user.id, id, models.MeetingStatus.needs_acceptance.value)
+    await meeting_in_user(user.id, id, models.MeetingStatus.needs_acceptance.value)
+    return schemas.ParticipantInviteSchema(meeting_id=id, user_id=user.id, status=models.MeetingStatus.needs_acceptance.value)
+
 @app.patch(
     "/invites/{id}",
     response_description="Change status of invitation",
@@ -342,24 +421,12 @@ async def show_meeting(id: str):
     response_model_by_alias=False,
 )
 async def change_invite_status(id: str, status: schemas.UpdateMeetingStatus = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
-    if (status.status not in models.MeetingStatus.__members__):
-        raise HTTPException(status_code=400, detail="Invalid status")
-    user_found = await user_collection.find_one({"_id": ObjectId(user.id)})
-    if user_found is None:
-        raise HTTPException(status_code=404, detail="Account not found")
-    meeting = await meetings_collection.find_one({"_id": ObjectId(id)})
-    if meeting is None:
-        raise HTTPException(status_code=404, detail=f"Meeting {id} not found")
-    
-    meeting_invites = user_found.get("meetings", [])
-    for invite in meeting_invites:
-        if invite["meeting_id"] == id:
-            invite["status"] = status.status
-            await user_collection.update_one(
-                {"_id": user_found["_id"]},
-                {"$set": {"meetings": meeting_invites}}
-            )
-            return invite
+    check_status(status.status)
+    await get_user(user.id)
+    await get_meeting(id)
+    await meeting_in_user(user.id, id, status.status)
+    await participant_in_meeting(user.id, id, status.status)
+    return models.MeetingInvite(meeting_id=id, status=status.status)
 
 @app.patch(
     "/meetings/{id}",
@@ -498,10 +565,51 @@ async def get_user(user_id: str) -> dict:
     return user_found
 
 async def get_meeting(meeting_id: str) -> dict:
-    meeting = await meetings_collection.find_one({"_id": ObjectId(meeting_id)})
-    if meeting is None:
+    meeting_found = await meetings_collection.find_one({"_id": ObjectId(meeting_id)})
+    if meeting_found is None:
         raise HTTPException(status_code=404, detail=f"meeting {meeting_id} not found")
-    return meeting
+    return meeting_found
+
+async def meeting_in_user(user_id: str, meeting_id: str, status: str) -> dict:
+    user_found = await get_user(user_id)
+    await get_meeting(meeting_id)
+    if user_found.get("meetings") is None:
+        user_found["meetings"] = []
+    if (status == models.MeetingStatus.needs_acceptance.value):
+        user_found["meetings"].append({"meeting_id": meeting_id, "status": status})
+    else:
+        for meeting in user_found["meetings"]:
+            if meeting["meeting_id"] == meeting_id:
+                meeting["status"] = status
+                break
+    await user_collection.update_one(
+        {"_id": user_found["_id"]},
+        {"$set": {"meetings": user_found["meetings"]}}
+    )
+    return user_found
+
+async def participant_in_meeting(user_id: str, meeting_id: str, status: str) -> dict:
+    meeting_found = await get_meeting(meeting_id)
+    await get_user(user_id)
+    if meeting_found.get("participants") is None:
+        meeting_found["participants"] = []
+    if (status == models.MeetingStatus.needs_acceptance.value):
+        meeting_found["participants"].append({"user_id": user_id, "status": status})
+    else:
+        for participant in meeting_found["participants"]:
+            if participant["user_id"] == user_id:
+                participant["status"] = status
+                break
+    await meetings_collection.update_one(
+        {"_id": meeting_found["_id"]},
+        {"$set": {"participants": meeting_found["participants"]}}
+    )
+    return meeting_found
+
+def check_status(status: str) -> bool:
+    if (status not in models.MeetingStatus.__members__):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    return True
 
 # ********** Groups **********
 

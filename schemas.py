@@ -63,8 +63,6 @@ class CreateMeeting(BaseModel):
     title: str
     start: str
     description: Optional[str] = None
-    needs_acceptance: bool = True
-    is_accepted: bool = False
     
 class UpdateMeeting(BaseModel):
     admin_id: Optional[str] = None
@@ -72,8 +70,6 @@ class UpdateMeeting(BaseModel):
     title: Optional[str] = None
     start: Optional[str] = None
     description: Optional[str] = None
-    needs_acceptance: Optional[bool] = None
-    is_accepted: Optional[bool] = None
     
 class UpdateMeetingStatus(BaseModel):
     status: str
@@ -87,6 +83,36 @@ class MeetingTile(BaseModel):
     
 class MeetingTileCollection(BaseModel):
     meetings: List[MeetingTile]
+    
+class ParticipantSchema(BaseModel):
+    user_id: str
+    user_username: str
+    status: str
+    # TODO: add photo
+
+class MeetingDetails(BaseModel):
+    id: str
+    title: str
+    start: str
+    description: str
+    group_id: str
+    group_name: str
+    admin: ParticipantSchema
+    participants: List[ParticipantSchema]
+    status: str
+    
+class UpdateParticipantStatus(BaseModel):
+    status: str
+    user_id: str
+
+class AddParticipantSchema(BaseModel):
+    id: str
+
+class ParticipantInviteSchema(BaseModel):
+    meeting_id: str
+    user_id: str
+    status: str
+    
 
 
 # ********** Agenda Schema **********

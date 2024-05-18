@@ -14,6 +14,10 @@ class MeetingStatus(str, Enum):
     declined = "declined"
     needs_acceptance = "needs acceptance"
 
+class Participant(BaseModel): #TODO: user_id as PyObjectId
+    user_id: PyObjectId = Field(..., description="ID of the user")
+    status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
+
 class AgendaPoint(BaseModel):
     text: str = Field(...)
     level: int = Field(..., description="Level of indentation of the agenda point in the list")
@@ -25,8 +29,7 @@ class MeetingModel(BaseModel):
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
-    needs_acceptance: bool = Field(..., description="Whether the meeting needs to be accepted by the group members")
-    is_accepted: bool = Field(..., description="Whether the meeting has been accepted by the group members")
+    participants: List[Participant] = Field([], description="List of participants in the meeting")
     agenda: List[AgendaPoint] = Field([], description="List of text points - agenda for the meeting")
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -36,9 +39,7 @@ class MeetingModel(BaseModel):
             "group_id": "12345",
             "title": "first group meeting",
             "start": "2022-01-01T12:00:00",
-            "description": "This is the first group meeting.",
-            "needs_acceptance": True,
-            "is_accepted": False,
+            "description": "This is the first group meeting."
         },
     )
 
@@ -50,7 +51,7 @@ class TimeSlot(BaseModel):
     length: float = Field(...)
     
 class MeetingInvite(BaseModel):
-    meeting_id: str = Field(..., description="ID of the meeting")
+    meeting_id: PyObjectId = Field(..., description="ID of the meeting")
     status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
 
 class UserModel(BaseModel):
