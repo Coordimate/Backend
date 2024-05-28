@@ -74,18 +74,6 @@ def decodeJWT(token: str) -> Type[schemas.AuthSchema] | None:
     except:
         return None
 
-
-# def get_user(db: Session, login: schemas.LoginSchema):
-#     user = db.query(models.Account).filter(models.Account.email == login.email).first()
-#     if user == None:
-#         return None
-#     if not bcrypt.checkpw(
-#         login.password.encode("utf-8"), user.password.encode("utf-8")
-#     ):
-#         return None
-#     return user
-
-
 def generateToken(account: schemas.AccountOut):
     reponse = schemas.TokenSchema
     reponse.access_token = createToken(
