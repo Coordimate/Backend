@@ -14,7 +14,7 @@ def notify_single_user(fcm_token, title, body):
             priority='normal',
             notification=messaging.AndroidNotification(
                 icon='stock_ticker_update',
-                color='#f45342'
+                color='#3d5a80'
             ),
         ),
         apns=messaging.APNSConfig(
