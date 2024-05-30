@@ -49,7 +49,9 @@ group_collection = db.get_collection("groups")
 async def login(user: schemas.LoginUserSchema = Body(...)):
     if (user_found := await user_collection.find_one({"email":user.email})) is not None:
         user_found["id"] = user_found.pop("_id")
-        if user_found.get("password") is not None:
+        if user.auth_type is None:
+            if user_found.get("password") is None:
+                raise HTTPException(status_code=409, detail=f"user regisered through external service")
             if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
                 token = auth.generateToken(user_found)
                 return token
@@ -96,8 +98,8 @@ async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
 async def register(user: schemas.CreateUserSchema = Body(...)):
     existing_user = await user_collection.find_one({"email": user.email})
     if existing_user:
-        raise HTTPException(status_code=400, detail="User already exists")
-    if (user.password is not None):
+        raise HTTPException(status_code=409, detail="User already exists")
+    if user.auth_type is None:
         user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
     new_user = await user_collection.insert_one(
         user.model_dump(by_alias=True, exclude={"id"})
