@@ -3,7 +3,7 @@ import datetime
 from firebase_admin import messaging
 
 
-def send_message(fcm_token, title, body):
+def notify_single_user(fcm_token, title, body):
     message = messaging.Message(
         notification=messaging.Notification(
             title=title,
@@ -22,7 +22,9 @@ def send_message(fcm_token, title, body):
                 aps=messaging.Aps(badge=42),
             ),
         ),
+        # Use topic to send messages to all subscribers of a topic
         # topic='industry-tech',
+        # Use token to target a specific user
         token=fcm_token,
     )
     response = messaging.send(message)

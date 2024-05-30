@@ -15,12 +15,14 @@ import firebase_admin
 import bcrypt
 import auth
 from auth import JWTBearer
+from firebase_utils import notify_single_user
 
 
 load_dotenv()
 
 
-firebase_app = firebase_admin.initialize_app()
+credentials = firebase_admin.credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
+firebase_app = firebase_admin.initialize_app(credentials)
 app = FastAPI(
     title="Coordimate Backend API",
     summary="Backend of the Coordimate mobile application that fascilitates group meetings",
