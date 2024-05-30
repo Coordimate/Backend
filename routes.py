@@ -586,6 +586,12 @@ async def get_meeting(meeting_id: str) -> dict:
         raise HTTPException(status_code=404, detail=f"meeting {meeting_id} not found")
     return meeting_found
 
+async def get_group(group_id: str) -> dict:
+    group_found = await group_collection.find_one({"_id": ObjectId(group_id)})
+    if group_found is None:
+        raise HTTPException(status_code=404, detail=f"meeting {group_id} not found")
+    return group_found
+
 async def meeting_in_user(user_id: str, meeting_id: str, status: str) -> dict:
     user_found = await get_user(user_id)
     await get_meeting(meeting_id)
@@ -705,3 +711,35 @@ async def delete_group(id: str):
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+
+@app.get(
+    "/groups/{id}/invite",
+    response_description="Get a link to invite user to a group",
+    response_model=schemas.GroupInviteResponse,
+    response_model_by_alias=False,
+)
+async def group_invite(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    _ = await get_user(user.id)
+    group_found = await get_group(id)
+
+    link = f"coordimate://coordimate.com/groups/join/{id}"
+    return schemas.GroupInviteResponse(join_link=link)
+
+
+@app.post(
+    "/groups/{id}/join",
+    response_description="Join a group using the invite link",
+)
+async def group_join(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    user_found = await get_user(user.id)
+    group_found = await get_group(id)
+
+    return {'result': 'ok'}
+

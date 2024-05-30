@@ -134,3 +134,8 @@ class CreateAgendaPoint(BaseModel):
 class CreateGroupSchema(BaseModel):
     name: str
     description: str
+
+
+class GroupInviteResponse(BaseModel):
+    join_link: str
+
