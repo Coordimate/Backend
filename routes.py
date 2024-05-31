@@ -373,7 +373,11 @@ async def create_meeting(
                 ),
             }
         )
-        notify_single_user(user_found["fcm_token"], "Meeting Invitation", f"Join the meeting {created_meeting['title']} with group {group['name']}, time: {created_meeting['start']}")
+        notify_single_user(
+            user_found["fcm_token"],
+            "Meeting Invitation",
+            f"Join the meeting {created_meeting['title']} with group {group['name']}, time: {created_meeting['start']}",
+        )
 
     await meetings_collection.update_one(
         {"_id": created_meeting["_id"]},
@@ -588,7 +592,11 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
             await users_collection.find_one_and_update(
                 {"_id": user["_id"]}, {"$set": user}
             )
-            notify_single_user(user["fcm_token"], "Meeting Update", f"The meeting {updated_meeting['title']} with group {group['name']}, time: {updated_meeting['start']}, just got updated.")
+            notify_single_user(
+                user["fcm_token"],
+                "Meeting Update",
+                f"The meeting {updated_meeting['title']} with group {group['name']}, time: {updated_meeting['start']}, just got updated.",
+            )
 
         update_result = await meetings_collection.find_one_and_update(
             {"_id": ObjectId(id)},
@@ -628,7 +636,11 @@ async def delete_meeting(id: str):
                 meetings.append(invite)
         user["meetings"] = meetings
         await users_collection.find_one_and_update({"_id": user["_id"]}, {"$set": user})
-        notify_single_user(user["fcm_token"], "Meeting Cancelled", f"The meeting {meeting['title']} with group {group['name']}, time: {meeting['start']}, was cancelled.")
+        notify_single_user(
+            user["fcm_token"],
+            "Meeting Cancelled",
+            f"The meeting {meeting['title']} with group {group['name']}, time: {meeting['start']}, was cancelled.",
+        )
 
     delete_result = await meetings_collection.delete_one({"_id": ObjectId(id)})
 
