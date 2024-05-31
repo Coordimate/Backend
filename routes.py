@@ -10,15 +10,19 @@ from bson import ObjectId
 
 import models
 import schemas
+import firebase_admin
 
 import bcrypt
 import auth
 from auth import JWTBearer
+from firebase_utils import notify_single_user
 
 
 load_dotenv()
 
 
+credentials = firebase_admin.credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
+firebase_app = firebase_admin.initialize_app(credentials)
 app = FastAPI(
     title="Coordimate Backend API",
     summary="Backend of the Coordimate mobile application that fascilitates group meetings",
@@ -49,11 +53,17 @@ group_collection = db.get_collection("groups")
 async def login(user: schemas.LoginUserSchema = Body(...)):
     if (user_found := await user_collection.find_one({"email":user.email})) is not None:
         user_found["id"] = user_found.pop("_id")
-        if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
+        if user.auth_type is None:
+            if user_found.get("password") is None:
+                raise HTTPException(status_code=409, detail=f"user regisered through external service")
+            if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
+                token = auth.generateToken(user_found)
+                return token
+            else:
+                raise HTTPException(status_code=400, detail=f"password incorrect")
+        else:
             token = auth.generateToken(user_found)
             return token
-        else:
-            raise HTTPException(status_code=400, detail=f"password incorrect")
 
     raise HTTPException(status_code=404, detail=f"user {user.email} not found")
 
@@ -80,6 +90,18 @@ async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
     user_found = await get_user(user.id)
     return schemas.AccountOut(id=str(user_found["_id"]), email=user_found["email"])
 
+@app.post(
+    "/enable_notifications",
+    response_description="Enable notifications for user",
+    response_model_by_alias=False,
+)
+async def enable_notifications(notifications: schemas.NotificationsSchema, user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
+    user_found['fcm_token'] = notifications.fcm_token
+    await user_collection.find_one_and_update({"_id": user_found['_id']}, {"$set": user_found})
+    return {'result': 'ok'}
+
+
 # ********** Users **********
 
 @app.post(
@@ -92,8 +114,9 @@ async def me(user: schemas.AuthSchema = Depends(JWTBearer())):
 async def register(user: schemas.CreateUserSchema = Body(...)):
     existing_user = await user_collection.find_one({"email": user.email})
     if existing_user:
-        raise HTTPException(status_code=400, detail="User already exists")
-    user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
+        raise HTTPException(status_code=409, detail="User already exists")
+    if user.auth_type is None:
+        user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
     new_user = await user_collection.insert_one(
         user.model_dump(by_alias=True, exclude={"id"})
     )
@@ -570,6 +593,12 @@ async def get_meeting(meeting_id: str) -> dict:
         raise HTTPException(status_code=404, detail=f"meeting {meeting_id} not found")
     return meeting_found
 
+async def get_group(group_id: str) -> dict:
+    group_found = await group_collection.find_one({"_id": ObjectId(group_id)})
+    if group_found is None:
+        raise HTTPException(status_code=404, detail=f"meeting {group_id} not found")
+    return group_found
+
 async def meeting_in_user(user_id: str, meeting_id: str, status: str) -> dict:
     user_found = await get_user(user_id)
     await get_meeting(meeting_id)
@@ -704,3 +733,35 @@ async def delete_group(id: str):
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+
+@app.get(
+    "/groups/{id}/invite",
+    response_description="Get a link to invite user to a group",
+    response_model=schemas.GroupInviteResponse,
+    response_model_by_alias=False,
+)
+async def group_invite(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    _ = await get_user(user.id)
+    group_found = await get_group(id)
+
+    link = f"coordimate://coordimate.com/groups/join/{id}"
+    return schemas.GroupInviteResponse(join_link=link)
+
+
+@app.post(
+    "/groups/{id}/join",
+    response_description="Join a group using the invite link",
+)
+async def group_join(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    user_found = await get_user(user.id)
+    group_found = await get_group(id)
+
+    return {'result': 'ok'}
+

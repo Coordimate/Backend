@@ -15,6 +15,9 @@ class RefreshTokenSchema(BaseModel):
 
 # ********** Users **********
 
+class NotificationsSchema(BaseModel):
+    fcm_token: str
+
 class AuthSchema(BaseModel):
     id: str
     is_access_token: bool
@@ -25,12 +28,14 @@ class AccountOut(BaseModel):
     
 class CreateUserSchema(BaseModel):
     username: str
-    password: str
+    password: Optional[str] = None
     email: EmailStr
+    auth_type: Optional[str] = None
     
 class LoginUserSchema(BaseModel):
     email: EmailStr
-    password: str
+    password: Optional[str] = None
+    auth_type: Optional[str] = None
 
 # ********** Time Slot Schema **********
 
@@ -131,5 +136,13 @@ class CreateAgendaPoint(BaseModel):
 class CreateGroupSchema(BaseModel):
     name: str
     description: str
+<<<<<<< HEAD
     users: List[models.UserModel] = []
     admins: List[models.UserModel] = []
+=======
+
+
+class GroupInviteResponse(BaseModel):
+    join_link: str
+
+>>>>>>> 30f1c77b85527418d2ad9524c464b6158881ba25

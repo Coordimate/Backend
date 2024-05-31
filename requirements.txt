@@ -8,6 +8,7 @@ cryptography==42.0.5
 dnspython==2.6.1
 email_validator==2.1.1
 fastapi==0.110.0
+firebase-admin==6.5.0
 h11==0.14.0
 httpx==0.26.0
 idna==3.6
