@@ -1,8 +1,8 @@
 from typing import List, Tuple, NewType
 
 
-Start = NewType('Start', int)
-Length = NewType('Length', int)
+Start = NewType("Start", int)
+Length = NewType("Length", int)
 Slot = Tuple[Start, Length]
 Schedule = List[Slot]
 
@@ -18,7 +18,7 @@ class GroupsScheduleManager:
 
     def compute_group_schedule(self) -> Schedule:
         # Transfer intervals from (start, length) to (start, end) representation
-        all_slots = sorted([(s, s+l) for s,l in sum(self.user_schedules, [])])
+        all_slots = sorted([(s, s + l) for s, l in sum(self.user_schedules, [])])
         if len(all_slots) == 0:
             return []
         group_schedule = []
@@ -32,7 +32,7 @@ class GroupsScheduleManager:
                 cur_start, cur_end = start, end
         group_schedule.append((cur_start, cur_end))
 
-        group_schedule = [(s, e-s) for s,e in group_schedule]
+        group_schedule = [(s, e - s) for s, e in group_schedule]
         self.group_schedule = group_schedule
         return group_schedule
 

@@ -17,9 +17,13 @@ async def regular_token():
         response = await ac.post("http://localhost:8000/login", json=account_details)
         assert response.status_code == 200
         if "detail" in response.json():
-            response = await ac.post("http://localhost:8000/register", json=account_details)
+            response = await ac.post(
+                "http://localhost:8000/register", json=account_details
+            )
             assert response.status_code == 200
-            response = await ac.post("http://localhost:8000/login", json=account_details)
+            response = await ac.post(
+                "http://localhost:8000/login", json=account_details
+            )
             assert response.status_code == 200
         access_token = response.json()["access_token"]
     yield access_token
@@ -27,4 +31,3 @@ async def regular_token():
 
 def auth_header(token: str):
     return {"Authorization": f"Bearer {token}"}
-

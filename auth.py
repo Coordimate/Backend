@@ -74,6 +74,7 @@ def decodeJWT(token: str) -> Type[schemas.AuthSchema] | None:
     except:
         return None
 
+
 def generateToken(account: schemas.AccountOut):
     reponse = schemas.TokenSchema
     reponse.access_token = createToken(

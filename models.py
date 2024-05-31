@@ -3,34 +3,52 @@ from typing_extensions import Annotated
 
 from pydantic import ConfigDict, BaseModel, Field, EmailStr
 from pydantic.functional_validators import BeforeValidator
+
 # from pymongo.objectid import ObjectId
 from bson import ObjectId
 from enum import Enum
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
+
 class MeetingStatus(str, Enum):
     accepted = "accepted"
     declined = "declined"
     needs_acceptance = "needs acceptance"
 
-class Participant(BaseModel): #TODO: user_id as PyObjectId
+
+class Participant(BaseModel):  # TODO: user_id as PyObjectId
     user_id: PyObjectId = Field(..., description="ID of the user")
-    status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
+    status: MeetingStatus = Field(
+        ...,
+        description="Status of the user for the meeting (accepted / needs acceptance / declined)",
+    )
+
 
 class AgendaPoint(BaseModel):
     text: str = Field(...)
-    level: int = Field(..., description="Level of indentation of the agenda point in the list")
+    level: int = Field(
+        ..., description="Level of indentation of the agenda point in the list"
+    )
+
 
 class MeetingModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
-    group_id: PyObjectId = Field(..., description="ID of the group associated with the meeting")
-    admin_id: PyObjectId = Field(..., description="ID of the user who created the meeting")
+    group_id: PyObjectId = Field(
+        ..., description="ID of the group associated with the meeting"
+    )
+    admin_id: PyObjectId = Field(
+        ..., description="ID of the user who created the meeting"
+    )
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
-    participants: List[Participant] = Field([], description="List of participants in the meeting")
-    agenda: List[AgendaPoint] = Field([], description="List of text points - agenda for the meeting")
+    participants: List[Participant] = Field(
+        [], description="List of participants in the meeting"
+    )
+    agenda: List[AgendaPoint] = Field(
+        [], description="List of text points - agenda for the meeting"
+    )
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str},
@@ -39,34 +57,48 @@ class MeetingModel(BaseModel):
             "group_id": "12345",
             "title": "first group meeting",
             "start": "2022-01-01T12:00:00",
-            "description": "This is the first group meeting."
+            "description": "This is the first group meeting.",
         },
     )
 
 
 class TimeSlot(BaseModel):
-    id: int = Field(..., alias="_id") #Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: int = Field(
+        ..., alias="_id"
+    )  # Optional[PyObjectId] = Field(alias="_id", default=None)
     day: int = Field(...)
     start: float = Field(...)
     length: float = Field(...)
-    
+
+
 class MeetingInvite(BaseModel):
     meeting_id: PyObjectId = Field(..., description="ID of the meeting")
-    status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
+    status: MeetingStatus = Field(
+        ...,
+        description="Status of the user for the meeting (accepted / needs acceptance / declined)",
+    )
+
 
 class UserCardModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
 
+
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
-    password: Optional[str] = Field(...) # because google users don't have passwords
-    fcm_token: str = Field('')
+    password: Optional[str] = Field(...)  # because google users don't have passwords
+    fcm_token: str = Field("")
     email: EmailStr = Field(...)
-    meetings: List[MeetingInvite] = Field([], description="List of meetings the user is invited to")
-    schedule: List[TimeSlot] = Field([], description="List of busy time slots in the user's schedule")
-    groups: List['GroupModel'] = Field([], description="List of groups the user belongs to")  # Added groups field
+    meetings: List[MeetingInvite] = Field(
+        [], description="List of meetings the user is invited to"
+    )
+    schedule: List[TimeSlot] = Field(
+        [], description="List of busy time slots in the user's schedule"
+    )
+    groups: List["GroupModel"] = Field(
+        [], description="List of groups the user belongs to"
+    )  # Added groups field
     # schedule_link: str = Field(...)
     # allow_location_link: bool = Field(...)
     # model_config = ConfigDict(
@@ -168,11 +200,17 @@ class GroupModel(BaseModel):
     admin: UserCardModel = Field(...)
     name: str = Field(...)
     description: str = Field(...)
-    users: List[UserModel] = Field([], description="List of users with access to the group")
-    admins: List[UserModel] = Field([], description="List of users who are admins of the group")
+    users: List[UserModel] = Field(
+        [], description="List of users with access to the group"
+    )
+    admins: List[UserModel] = Field(
+        [], description="List of users who are admins of the group"
+    )
+
 
 class GroupCollection(BaseModel):
     groups: List[GroupModel]
+
 
 class UpdateGroupModel(BaseModel):
     name: Optional[str] = None

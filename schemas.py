@@ -6,38 +6,48 @@ import models
 
 # ********* Token Schema *********
 
+
 class TokenSchema(BaseModel):
     access_token: str
     refresh_token: str
-    
+
+
 class RefreshTokenSchema(BaseModel):
     refresh_token: str
 
+
 # ********** Users **********
+
 
 class NotificationsSchema(BaseModel):
     fcm_token: str
 
+
 class AuthSchema(BaseModel):
     id: str
     is_access_token: bool
-    
+
+
 class AccountOut(BaseModel):
     id: str
     email: EmailStr
-    
+
+
 class CreateUserSchema(BaseModel):
     username: str
     password: Optional[str] = None
     email: EmailStr
     auth_type: Optional[str] = None
-    
+
+
 class LoginUserSchema(BaseModel):
     email: EmailStr
     password: Optional[str] = None
     auth_type: Optional[str] = None
 
+
 # ********** Time Slot Schema **********
+
 
 class TimeSlotCollection(BaseModel):
     time_slots: List[models.TimeSlot]
@@ -59,8 +69,10 @@ class UpdateTimeSlot(BaseModel):
 
 # ********** Meeting Schema **********
 
+
 class MeetingCollection(BaseModel):
     meetings: List[models.MeetingModel]
+
 
 class CreateMeeting(BaseModel):
     admin_id: Optional[str] = None
@@ -68,32 +80,38 @@ class CreateMeeting(BaseModel):
     title: str
     start: str
     description: Optional[str] = None
-    
+
+
 class UpdateMeeting(BaseModel):
     admin_id: Optional[str] = None
     group_id: Optional[str] = None
     title: Optional[str] = None
     start: Optional[str] = None
     description: Optional[str] = None
-    
+
+
 class UpdateMeetingStatus(BaseModel):
     status: models.MeetingStatus
-    
+
+
 class MeetingTile(BaseModel):
     id: str
     title: str
     start: str
     group_id: str
     status: str
-    
+
+
 class MeetingTileCollection(BaseModel):
     meetings: List[MeetingTile]
-    
+
+
 class ParticipantSchema(BaseModel):
     user_id: str
     user_username: str
     status: str
     # TODO: add photo
+
 
 class MeetingDetails(BaseModel):
     id: str
@@ -105,22 +123,25 @@ class MeetingDetails(BaseModel):
     admin: ParticipantSchema
     participants: List[ParticipantSchema]
     status: str
-    
+
+
 class UpdateParticipantStatus(BaseModel):
     status: str
     user_id: str
 
+
 class AddParticipantSchema(BaseModel):
     id: str
+
 
 class ParticipantInviteSchema(BaseModel):
     meeting_id: str
     user_id: str
     status: str
-    
 
 
 # ********** Agenda Schema **********
+
 
 class AgendaPointCollection(BaseModel):
     agenda: List[models.AgendaPoint]
@@ -133,6 +154,7 @@ class CreateAgendaPoint(BaseModel):
 
 # ********** Groups **********
 
+
 class CreateGroupSchema(BaseModel):
     name: str
     description: str
@@ -140,4 +162,3 @@ class CreateGroupSchema(BaseModel):
 
 class GroupInviteResponse(BaseModel):
     join_link: str
-
