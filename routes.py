@@ -141,9 +141,7 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
         raise HTTPException(status_code=409, detail="User already exists")
     if user.auth_type is None:
         if user.password is not None:
-            user.password = str(
-                bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
-            )
+            user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
         else:
             raise HTTPException(
                 status_code=400,
