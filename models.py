@@ -54,6 +54,10 @@ class MeetingInvite(BaseModel):
     meeting_id: PyObjectId = Field(..., description="ID of the meeting")
     status: MeetingStatus = Field(..., description="Status of the user for the meeting (accepted / needs acceptance / declined)")
 
+class UserCardModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    username: str = Field(...)
+
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
@@ -161,12 +165,12 @@ class UserCollection(BaseModel):
 
 class GroupModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    admin: UserCardModel = Field(...)
     name: str = Field(...)
     description: str = Field(...)
-    users: List[UserModel] = Field([], description="List of users with access to the group")  # Added users field
-    admins: List[UserModel] = Field([], description="List of users who are admins of the group")  # Admins of the group
+    users: List[UserModel] = Field([], description="List of users with access to the group")
+    admins: List[UserModel] = Field([], description="List of users who are admins of the group")
 
-#to list groups for each particular user. needs more by working with user ID's
 class GroupCollection(BaseModel):
     groups: List[GroupModel]
 

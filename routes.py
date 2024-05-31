@@ -1,7 +1,7 @@
 import os
 
 import motor.motor_asyncio
-from fastapi import FastAPI, Request, HTTPException, Body, status, Depends
+from fastapi import FastAPI, HTTPException, Body, status, Depends
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import ReturnDocument#, ObjectId
@@ -56,11 +56,14 @@ async def login(user: schemas.LoginUserSchema = Body(...)):
         if user.auth_type is None:
             if user_found.get("password") is None:
                 raise HTTPException(status_code=409, detail=f"user regisered through external service")
-            if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
-                token = auth.generateToken(user_found)
-                return token
+            if user.password is not None:
+                if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
+                    token = auth.generateToken(user_found)
+                    return token
+                else:
+                    raise HTTPException(status_code=400, detail=f"password incorrect")
             else:
-                raise HTTPException(status_code=400, detail=f"password incorrect")
+                raise HTTPException(status_code=400, detail=f"No password specified, our Google/Facebook Auth got us")
         else:
             token = auth.generateToken(user_found)
             return token
@@ -116,7 +119,10 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
     if existing_user:
         raise HTTPException(status_code=409, detail="User already exists")
     if user.auth_type is None:
-        user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
+        if user.password is not None:
+            user.password = str(bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt()))
+        else:
+            raise HTTPException(status_code=400, detail=f"No password specified, our Google/Facebook Auth got us")
     new_user = await user_collection.insert_one(
         user.model_dump(by_alias=True, exclude={"id"})
     )
@@ -417,12 +423,13 @@ async def show_meeting_details(id: str, user: schemas.AuthSchema = Depends(JWTBe
 )
 async def change_participant_status(id: str, participant: schemas.UpdateParticipantStatus = Body(...), user: schemas.AuthSchema = Depends(JWTBearer())):
     # user here is the admin
-    await get_user(participant.id)
+    _ = await get_user(user.id)
+    await get_user(participant.user_id)
     await get_meeting(id)
     check_status(participant.status)
-    await meeting_in_user(participant.id, id, participant.status)
-    await participant_in_meeting(participant.id, id, participant.status)
-    return schemas.ParticipantInviteSchema(meeting_id=id, user_id=participant.id, status=participant.status)   
+    await meeting_in_user(participant.user_id, id, participant.status)
+    await participant_in_meeting(participant.user_id, id, participant.status)
+    return schemas.ParticipantInviteSchema(meeting_id=id, user_id=participant.user_id, status=participant.status)   
 
 @app.post(
     "/meetings/{id}/invite",
@@ -579,6 +586,135 @@ async def delete_agenda_point(id: str, point_id: int, user: schemas.AuthSchema =
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+# ********** Groups **********
+
+@app.post(
+    "/groups/",
+    response_description="Create new group",
+    response_model=models.GroupModel,
+    status_code=status.HTTP_201_CREATED,
+    response_model_by_alias=False,
+)
+async def createGroup(
+    group: schemas.CreateGroupSchema = Body(...),
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    user_found = await get_user(user.id)
+    user_card = get_user_card(user_found)
+    group_dict = group.model_dump(by_alias=True, exclude={"id"})
+    group_dict['admin'] = user_card
+
+    new_group = await group_collection.insert_one(group_dict)
+    created_group = await group_collection.find_one({"_id": new_group.inserted_id})
+    return created_group
+
+@app.get(
+    "/groups/",
+    response_description="List all groups",
+    response_model=models.GroupCollection,
+    response_model_by_alias=False,
+)
+async def list_groups():
+    return models.GroupCollection(groups=await group_collection.find().to_list(1000))
+
+@app.get(
+    "/groups/{id}",
+    response_description="Get a single group",
+    response_model=models.GroupModel,
+    response_model_by_alias=False,
+)
+async def show_group(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    _ = await get_user(user.id)
+    if (group := await group_collection.find_one({"_id": ObjectId(id)})) is not None:
+        return group
+
+    raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+
+@app.put(
+    "/groups/{id}",
+    response_description="Update a group",
+    response_model=models.GroupModel,
+    response_model_by_alias=False,
+)
+async def update_group(
+    id: str,
+    group: models.UpdateGroupModel = Body(...),
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    _ = await get_user(user.id)
+    group_dict = {
+        k: v for k, v in group.model_dump(by_alias=True).items() if v is not None
+    }
+
+    if len(group_dict) >= 1:
+        update_result = await group_collection.find_one_and_update(
+            {"_id": ObjectId(id)},
+            {"$set": group_dict},
+            return_document=ReturnDocument.AFTER,
+        )
+        if update_result is not None:
+            return update_result
+        else:
+            raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+    if (existing_group := await group_collection.find_one({"_id": id})) is not None:
+        return existing_group
+
+    raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+
+@app.delete(
+    "/groups/{id}", 
+    response_description="Delete a group"
+)
+async def delete_group(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    _ = await get_user(user.id)
+    delete_result = await group_collection.delete_one({"_id": ObjectId(id)})
+
+    if delete_result.deleted_count == 1:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+
+@app.get(
+    "/groups/{id}/invite",
+    response_description="Get a link to invite user to a group",
+    response_model=schemas.GroupInviteResponse,
+    response_model_by_alias=False,
+)
+async def group_invite(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    _ = await get_user(user.id)
+    _ = await get_group(id)
+
+    link = f"coordimate://coordimate.com/groups/join/{id}"
+    return schemas.GroupInviteResponse(join_link=link)
+
+
+@app.post(
+    "/groups/{id}/join",
+    response_description="Join a group using the invite link",
+)
+async def group_join(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer())
+):
+    _ = await get_user(user.id)
+    _ = await get_group(id)
+
+    return {'result': 'ok'}
+
+
 # ********** Utils **********
 
 async def get_user(user_id: str) -> dict:
@@ -598,6 +734,9 @@ async def get_group(group_id: str) -> dict:
     if group_found is None:
         raise HTTPException(status_code=404, detail=f"meeting {group_id} not found")
     return group_found
+
+def get_user_card(user):
+    return models.UserCardModel(_id=user.id, username=user.username)
 
 async def meeting_in_user(user_id: str, meeting_id: str, status: str) -> dict:
     user_found = await get_user(user_id)
@@ -639,129 +778,4 @@ def check_status(status: str) -> bool:
     if (status not in models.MeetingStatus.__members__):
         raise HTTPException(status_code=400, detail="Invalid status")
     return True
-
-# ********** Groups **********
-
-async def get_current_user(request: Request) -> models.UserModel:
-    user = request.state.user
-    if not user:
-        raise HTTPException(status_code=401, detail="User not authenticated")
-    return user
-
-
-@app.post(
-    "/groups/",
-    response_description="Create new group",
-    response_model=models.GroupModel,
-    status_code=status.HTTP_201_CREATED,
-    response_model_by_alias=False,
-)
-async def createGroup(
-    group: schemas.CreateGroupSchema = Body(...),
-    current_user: models.UserModel = Depends(get_current_user)  # Fetching the current user
-):
-
-    # Add the current user to the list of users and admins
-    group.users.append(current_user)
-    group.admins.append(current_user)
-
-    # Convert the Pydantic model to a dictionary
-    group_dict = group.model_dump(by_alias=True, exclude={"id"})
-
-    new_group = await group_collection.insert_one(group_dict)
-    created_group = await group_collection.find_one({"_id": new_group.inserted_id})
-    return created_group
-
-@app.get(
-    "/groups/",
-    response_description="List all groups",
-    response_model=models.GroupCollection,
-    response_model_by_alias=False,
-)
-async def list_groups():
-    return models.GroupCollection(groups=await group_collection.find().to_list(1000))
-
-@app.get(
-    "/groups/{id}",
-    response_description="Get a single group",
-    response_model=models.GroupModel,
-    response_model_by_alias=False,
-)
-async def show_group(id: str):
-    if (group := await group_collection.find_one({"_id": ObjectId(id)})) is not None:
-        return group
-
-    raise HTTPException(status_code=404, detail=f"group {id} not found")
-
-
-@app.put(
-    "/groups/{id}",
-    response_description="Update a group",
-    response_model=models.GroupModel,
-    response_model_by_alias=False,
-)
-async def update_group(id: str, group: models.UpdateGroupModel = Body(...)):
-    group_dict = {
-        k: v for k, v in group.model_dump(by_alias=True).items() if v is not None
-    }
-
-    if len(group_dict) >= 1:
-        update_result = await group_collection.find_one_and_update(
-            {"_id": ObjectId(id)},
-            {"$set": group_dict},
-            return_document=ReturnDocument.AFTER,
-        )
-        if update_result is not None:
-            return update_result
-        else:
-            raise HTTPException(status_code=404, detail=f"group {id} not found")
-
-    if (existing_group := await group_collection.find_one({"_id": id})) is not None:
-        return existing_group
-
-    raise HTTPException(status_code=404, detail=f"group {id} not found")
-
-
-@app.delete(
-    "/groups/{id}", 
-    response_description="Delete a group"
-)
-async def delete_group(id: str):
-    delete_result = await group_collection.delete_one({"_id": ObjectId(id)})
-
-    if delete_result.deleted_count == 1:
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-    raise HTTPException(status_code=404, detail=f"group {id} not found")
-
-
-@app.get(
-    "/groups/{id}/invite",
-    response_description="Get a link to invite user to a group",
-    response_model=schemas.GroupInviteResponse,
-    response_model_by_alias=False,
-)
-async def group_invite(
-    id: str,
-    user: schemas.AuthSchema = Depends(JWTBearer())
-):
-    _ = await get_user(user.id)
-    group_found = await get_group(id)
-
-    link = f"coordimate://coordimate.com/groups/join/{id}"
-    return schemas.GroupInviteResponse(join_link=link)
-
-
-@app.post(
-    "/groups/{id}/join",
-    response_description="Join a group using the invite link",
-)
-async def group_join(
-    id: str,
-    user: schemas.AuthSchema = Depends(JWTBearer())
-):
-    user_found = await get_user(user.id)
-    group_found = await get_group(id)
-
-    return {'result': 'ok'}
 

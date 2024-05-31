@@ -77,7 +77,7 @@ class UpdateMeeting(BaseModel):
     description: Optional[str] = None
     
 class UpdateMeetingStatus(BaseModel):
-    status: str
+    status: models.MeetingStatus
     
 class MeetingTile(BaseModel):
     id: str
@@ -136,8 +136,6 @@ class CreateAgendaPoint(BaseModel):
 class CreateGroupSchema(BaseModel):
     name: str
     description: str
-    users: List[models.UserModel] = []
-    admins: List[models.UserModel] = []
 
 
 class GroupInviteResponse(BaseModel):
