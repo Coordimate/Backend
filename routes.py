@@ -373,6 +373,7 @@ async def create_meeting(
                 ),
             }
         )
+        notify_single_user(user_found["fcm_token"], "Meeting Invitation", f"Join the meeting {created_meeting['title']} with group {group['name']}, time: {created_meeting['start']}")
 
     await meetings_collection.update_one(
         {"_id": created_meeting["_id"]},
@@ -573,6 +574,8 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
         )
 
         meeting_found = await get_meeting(id)
+        updated_meeting = meeting_found.copy()
+        updated_meeting.update(meeting_dict)
         for u in meeting_found["participants"]:
             user = await get_user(u["user_id"])
             meetings = []
@@ -585,6 +588,7 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
             await users_collection.find_one_and_update(
                 {"_id": user["_id"]}, {"$set": user}
             )
+            notify_single_user(user["fcm_token"], "Meeting Update", f"The meeting {updated_meeting['title']} with group {group['name']}, time: {updated_meeting['start']}, just got updated.")
 
         update_result = await meetings_collection.find_one_and_update(
             {"_id": ObjectId(id)},
@@ -624,6 +628,7 @@ async def delete_meeting(id: str):
                 meetings.append(invite)
         user["meetings"] = meetings
         await users_collection.find_one_and_update({"_id": user["_id"]}, {"$set": user})
+        notify_single_user(user["fcm_token"], "Meeting Cancelled", f"The meeting {meeting['title']} with group {group['name']}, time: {meeting['start']}, was cancelled.")
 
     delete_result = await meetings_collection.delete_one({"_id": ObjectId(id)})
 
@@ -899,16 +904,17 @@ async def list_group_meetings(
     _ = await get_user(user.id)
     group = await get_group(id)
     meetings = group.get("meetings", [])
+    response_meetings = []
     for meeting in meetings:
         meeting_found = await get_meeting(meeting["_id"])
         meeting_tile = models.MeetingCardModel(
-            id=str(meeting_found["_id"]),
+            _id=str(meeting_found["_id"]),
             title=meeting_found["title"],
             start=meeting_found["start"],
         )
-        meetings.append(meeting_tile)
+        response_meetings.append(meeting_tile)
 
-    return schemas.MeetingCardCollection(meetings=meetings)
+    return schemas.MeetingCardCollection(meetings=response_meetings)
 
 
 # ********** Utils **********
@@ -931,7 +937,7 @@ async def get_meeting(meeting_id: str) -> dict:
 async def get_group(group_id: str) -> dict:
     group_found = await groups_collection.find_one({"_id": ObjectId(group_id)})
     if group_found is None:
-        raise HTTPException(status_code=404, detail=f"meeting {group_id} not found")
+        raise HTTPException(status_code=404, detail=f"group {group_id} not found")
     return group_found
 
 
@@ -949,7 +955,7 @@ def get_group_card(group):
 
 def get_meeting_card(meeting):
     return models.MeetingCardModel(
-        id=str(meeting["_id"]), title=meeting["title"], start=meeting["start"]
+        _id=str(meeting["_id"]), title=meeting["title"], start=meeting["start"]
     ).model_dump(by_alias=True)
 
 

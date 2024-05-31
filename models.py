@@ -42,9 +42,9 @@ class AgendaPoint(BaseModel):
 
 
 class MeetingCardModel(BaseModel):
-    id: str
-    title: str
-    start: str
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    title: str = Field(...)
+    start: str = Field(...)
 
 
 class MeetingModel(BaseModel):
