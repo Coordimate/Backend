@@ -17,6 +17,14 @@ class MeetingStatus(str, Enum):
     needs_acceptance = "needs acceptance"
 
 
+class MeetingTile(BaseModel):
+    id: str
+    title: str
+    start: str
+    group_id: str
+    status: str
+
+
 class Participant(BaseModel):  # TODO: user_id as PyObjectId
     user_id: PyObjectId = Field(..., description="ID of the user")
     status: MeetingStatus = Field(
@@ -96,9 +104,9 @@ class UserModel(BaseModel):
     schedule: List[TimeSlot] = Field(
         [], description="List of busy time slots in the user's schedule"
     )
-    groups: List["GroupModel"] = Field(
+    groups: List["GroupCardModel"] = Field(
         [], description="List of groups the user belongs to"
-    )  # Added groups field
+    ) 
     # schedule_link: str = Field(...)
     # allow_location_link: bool = Field(...)
     # model_config = ConfigDict(
@@ -195,16 +203,21 @@ class UserCollection(BaseModel):
     users: List[UserModel]
 
 
+class GroupCardModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str = Field(...)
+
+
 class GroupModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     admin: UserCardModel = Field(...)
     name: str = Field(...)
     description: str = Field(...)
-    users: List[UserModel] = Field(
+    users: List[UserCardModel] = Field(
         [], description="List of users with access to the group"
     )
-    admins: List[UserModel] = Field(
-        [], description="List of users who are admins of the group"
+    meetings: List[MeetingTile] = Field(
+        [], description="List of meetings of the group"
     )
 
 
@@ -215,3 +228,4 @@ class GroupCollection(BaseModel):
 class UpdateGroupModel(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+

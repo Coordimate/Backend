@@ -38,9 +38,9 @@ app.add_middleware(
 )
 client = motor.motor_asyncio.AsyncIOMotorClient(os.environ["MONGODB_URL"])
 db = client.coordimate
-user_collection = db.get_collection("users")
+users_collection = db.get_collection("users")
 meetings_collection = db.get_collection("meetings")
-group_collection = db.get_collection("groups")
+groups_collection = db.get_collection("groups")
 
 
 # ********** Authentification **********
@@ -55,7 +55,7 @@ group_collection = db.get_collection("groups")
 )
 async def login(user: schemas.LoginUserSchema = Body(...)):
     if (
-        user_found := await user_collection.find_one({"email": user.email})
+        user_found := await users_collection.find_one({"email": user.email})
     ) is not None:
         user_found["id"] = user_found.pop("_id")
         if user.auth_type is None:
@@ -119,7 +119,7 @@ async def enable_notifications(
 ):
     user_found = await get_user(user.id)
     user_found["fcm_token"] = notifications.fcm_token
-    await user_collection.find_one_and_update(
+    await users_collection.find_one_and_update(
         {"_id": user_found["_id"]}, {"$set": user_found}
     )
     return {"result": "ok"}
@@ -136,7 +136,7 @@ async def enable_notifications(
     response_model_by_alias=False,
 )
 async def register(user: schemas.CreateUserSchema = Body(...)):
-    existing_user = await user_collection.find_one({"email": user.email})
+    existing_user = await users_collection.find_one({"email": user.email})
     if existing_user:
         raise HTTPException(status_code=409, detail="User already exists")
     if user.auth_type is None:
@@ -149,10 +149,10 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
                 status_code=400,
                 detail=f"No password specified, our Google/Facebook Auth got us",
             )
-    new_user = await user_collection.insert_one(
+    new_user = await users_collection.insert_one(
         user.model_dump(by_alias=True, exclude={"id"})
     )
-    created_user = await user_collection.find_one({"_id": new_user.inserted_id})
+    created_user = await users_collection.find_one({"_id": new_user.inserted_id})
     return created_user
 
 
@@ -163,7 +163,7 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
     response_model_by_alias=False,
 )
 async def list_users():
-    return models.UserCollection(users=await user_collection.find().to_list(1000))
+    return models.UserCollection(users=await users_collection.find().to_list(1000))
 
 
 @app.get(
@@ -189,7 +189,7 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
     }
 
     if len(user_dict) >= 1:
-        update_result = await user_collection.find_one_and_update(
+        update_result = await users_collection.find_one_and_update(
             {"_id": ObjectId(id)},
             {"$set": user_dict},
             return_document=ReturnDocument.AFTER,
@@ -213,7 +213,7 @@ async def delete_user(id: str):
                 {"$pull": {"participants": {"user_id": participant["user_id"]}}},
             )
             print(delete_res.modified_count)
-    delete_result = await user_collection.delete_one({"_id": ObjectId(id)})
+    delete_result = await users_collection.delete_one({"_id": ObjectId(id)})
     if delete_result.deleted_count == 1:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -259,7 +259,7 @@ async def create_time_slot(
     new_time_slot["_id"] = new_id + 1
     user_found["schedule"].append(new_time_slot)
 
-    await user_collection.update_one(
+    await users_collection.update_one(
         {"_id": user_found["_id"]}, {"$set": {"schedule": user_found["schedule"]}}
     )
     return new_time_slot
@@ -286,7 +286,7 @@ async def update_time_slot(
             schedule[i].update(time_slot_dict)
             break
 
-    update_result = await user_collection.update_one(
+    update_result = await users_collection.update_one(
         {"_id": ObjectId(user_found["_id"])}, {"$set": {"schedule": schedule}}
     )
     if update_result.modified_count != 1:
@@ -304,7 +304,7 @@ async def delete_time_slot(
 ):
     user_found = await get_user(user.id)
 
-    delete_result = await user_collection.update_one(
+    delete_result = await users_collection.update_one(
         {"_id": ObjectId(user_found["_id"])}, {"$pull": {"schedule": {"_id": slot_id}}}
     )
     if delete_result.modified_count == 1:
@@ -348,7 +348,7 @@ async def create_meeting(
         }
     )
     # Update the user document with the new meetings list
-    await user_collection.update_one(
+    await users_collection.update_one(
         {"_id": user_found["_id"]}, {"$set": {"meetings": user_found["meetings"]}}
     )
     # Add yourself as a participant
@@ -392,7 +392,7 @@ async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
             {"_id": ObjectId(invite["meeting_id"])}
         )
         if meeting is not None:
-            meeting_tile = schemas.MeetingTile(
+            meeting_tile = models.MeetingTile(
                 id=str(meeting["_id"]),
                 title=meeting["title"],
                 start=meeting["start"],
@@ -671,17 +671,28 @@ async def delete_agenda_point(
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def createGroup(
+async def create_group(
     group: schemas.CreateGroupSchema = Body(...),
     user: schemas.AuthSchema = Depends(JWTBearer()),
 ):
     user_found = await get_user(user.id)
     user_card = get_user_card(user_found)
+
     group_dict = group.model_dump(by_alias=True, exclude={"id"})
     group_dict["admin"] = user_card
+    group_dict["users"] = [user_card]
 
-    new_group = await group_collection.insert_one(group_dict)
-    created_group = await group_collection.find_one({"_id": new_group.inserted_id})
+    new_group = await groups_collection.insert_one(group_dict)
+    created_group = await groups_collection.find_one({"_id": new_group.inserted_id})
+
+    group_card = get_group_card(created_group)
+    if "groups" not in user_found:
+        user_found["groups"] = []
+    user_found["groups"].append(group_card)
+
+    await users_collection.update_one(
+        {"_id": user_found["_id"]}, {"$set": user_found}
+    )
     return created_group
 
 
@@ -691,8 +702,12 @@ async def createGroup(
     response_model=models.GroupCollection,
     response_model_by_alias=False,
 )
-async def list_groups():
-    return models.GroupCollection(groups=await group_collection.find().to_list(1000))
+async def list_groups(user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
+    user_groups = user_found["groups"]
+    group_ids = [ObjectId(group["_id"]) for group in user_groups]
+
+    return models.GroupCollection(groups=await groups_collection.find({"_id": {"$in": group_ids}}).to_list(100))
 
 
 @app.get(
@@ -703,7 +718,7 @@ async def list_groups():
 )
 async def show_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
     _ = await get_user(user.id)
-    if (group := await group_collection.find_one({"_id": ObjectId(id)})) is not None:
+    if (group := await groups_collection.find_one({"_id": ObjectId(id)})) is not None:
         return group
 
     raise HTTPException(status_code=404, detail=f"group {id} not found")
@@ -726,7 +741,7 @@ async def update_group(
     }
 
     if len(group_dict) >= 1:
-        update_result = await group_collection.find_one_and_update(
+        update_result = await groups_collection.find_one_and_update(
             {"_id": ObjectId(id)},
             {"$set": group_dict},
             return_document=ReturnDocument.AFTER,
@@ -736,7 +751,7 @@ async def update_group(
         else:
             raise HTTPException(status_code=404, detail=f"group {id} not found")
 
-    if (existing_group := await group_collection.find_one({"_id": id})) is not None:
+    if (existing_group := await groups_collection.find_one({"_id": id})) is not None:
         return existing_group
 
     raise HTTPException(status_code=404, detail=f"group {id} not found")
@@ -745,8 +760,20 @@ async def update_group(
 @app.delete("/groups/{id}", response_description="Delete a group")
 async def delete_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
     _ = await get_user(user.id)
-    delete_result = await group_collection.delete_one({"_id": ObjectId(id)})
+    group = await get_group(id)
 
+    if "meetings" in group:
+        meetings_ids_to_delete = [ObjectId(m["_id"]) for m in group["meetings"]]
+        # TODO: when deleting a meeting it should be removed from all users (invitations)
+        await meetings_collection.delete_many({"_id": {"$in": meetings_ids_to_delete}})
+
+    user_ids_to_cleanup = [ObjectId(u["_id"]) for u in group["users"]]
+    for user_id in user_ids_to_cleanup:
+        user_found = await get_user(str(user_id))
+        user_found["groups"] = [g for g in user_found["groups"] if g["_id"] != id]
+        await users_collection.find_one_and_update({"_id": user_id}, {"$set": user_found})
+
+    delete_result = await groups_collection.delete_one({"_id": ObjectId(id)})
     if delete_result.deleted_count == 1:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -772,8 +799,23 @@ async def group_invite(id: str, user: schemas.AuthSchema = Depends(JWTBearer()))
     response_description="Join a group using the invite link",
 )
 async def group_join(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
-    _ = await get_user(user.id)
-    _ = await get_group(id)
+    user_found = await get_user(user.id)
+    group_found = await get_group(id)
+
+    for group_user in group_found["users"]:
+        if ObjectId(group_user["_id"]) == user_found["_id"]:
+            return {"result": "ok"}
+
+    user_card = get_user_card(user_found) 
+    group_card = get_group_card(group_found)
+
+    group_found["users"].append(user_card)
+    if "groups" not in user_found:
+        user_found["groups"] = []
+    user_found["groups"].append(group_card)
+
+    await users_collection.find_one_and_update({"_id": user_found["_id"]}, {"$set": user_found})
+    await groups_collection.find_one_and_update({"_id": group_found["_id"]}, {"$set": group_found})
 
     return {"result": "ok"}
 
@@ -782,7 +824,7 @@ async def group_join(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
 
 
 async def get_user(user_id: str) -> dict:
-    user_found = await user_collection.find_one({"_id": ObjectId(user_id)})
+    user_found = await users_collection.find_one({"_id": ObjectId(user_id)})
     if user_found is None:
         raise HTTPException(status_code=404, detail=f"user {user_id} not found")
     return user_found
@@ -796,14 +838,18 @@ async def get_meeting(meeting_id: str) -> dict:
 
 
 async def get_group(group_id: str) -> dict:
-    group_found = await group_collection.find_one({"_id": ObjectId(group_id)})
+    group_found = await groups_collection.find_one({"_id": ObjectId(group_id)})
     if group_found is None:
         raise HTTPException(status_code=404, detail=f"meeting {group_id} not found")
     return group_found
 
 
 def get_user_card(user):
-    return models.UserCardModel(_id=user.id, username=user.username)
+    return models.UserCardModel(_id=user["_id"], username=user["username"]).model_dump(by_alias=True)
+
+
+def get_group_card(group):
+    return models.GroupCardModel(_id=group["_id"], name=group["name"]).model_dump(by_alias=True)
 
 
 async def meeting_in_user(user_id: str, meeting_id: str, status: str) -> dict:
@@ -818,7 +864,7 @@ async def meeting_in_user(user_id: str, meeting_id: str, status: str) -> dict:
             if meeting["meeting_id"] == meeting_id:
                 meeting["status"] = status
                 break
-    await user_collection.update_one(
+    await users_collection.update_one(
         {"_id": user_found["_id"]}, {"$set": {"meetings": user_found["meetings"]}}
     )
     return user_found

@@ -94,16 +94,8 @@ class UpdateMeetingStatus(BaseModel):
     status: models.MeetingStatus
 
 
-class MeetingTile(BaseModel):
-    id: str
-    title: str
-    start: str
-    group_id: str
-    status: str
-
-
 class MeetingTileCollection(BaseModel):
-    meetings: List[MeetingTile]
+    meetings: List[models.MeetingTile]
 
 
 class ParticipantSchema(BaseModel):
