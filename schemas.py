@@ -28,12 +28,14 @@ class AccountOut(BaseModel):
     
 class CreateUserSchema(BaseModel):
     username: str
-    password: str
+    password: Optional[str] = None
     email: EmailStr
+    auth_type: Optional[str] = None
     
 class LoginUserSchema(BaseModel):
     email: EmailStr
-    password: str
+    password: Optional[str] = None
+    auth_type: Optional[str] = None
 
 # ********** Time Slot Schema **********
 

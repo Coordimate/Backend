@@ -57,7 +57,7 @@ class MeetingInvite(BaseModel):
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
-    password: str = Field(...)
+    password: Optional[str] = Field(...) # because google users don't have passwords
     fcm_token: str = Field('')
     email: EmailStr = Field(...)
     meetings: List[MeetingInvite] = Field([], description="List of meetings the user is invited to")
