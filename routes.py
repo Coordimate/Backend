@@ -328,36 +328,52 @@ async def create_meeting(
     user: schemas.AuthSchema = Depends(JWTBearer()),
 ):
     user_found = await get_user(user.id)
-    meeting.admin_id = str(user_found["_id"])
-    new_meeting = await meetings_collection.insert_one(
-        meeting.model_dump(by_alias=True, exclude={"id"})
-    )
+    meeting_dict = meeting.model_dump(by_alias=True, exclude={"id"})
+    meeting_dict["admin_id"] = str(user_found["_id"])
+    new_meeting = await meetings_collection.insert_one(meeting_dict)
     created_meeting = await meetings_collection.find_one(
         {"_id": new_meeting.inserted_id}
     )
     if created_meeting is None:
         raise HTTPException(status_code=500, detail="Error creating a meeting")
-    # If the user has no meetings yet, create an empty list
-    if user_found.get("meetings") is None:
-        user_found["meetings"] = []
-    # Add the meeting to the user's meetings list
-    user_found["meetings"].append(
-        {
-            "meeting_id": str(created_meeting["_id"]),
-            "status": models.MeetingStatus.needs_acceptance.value,
-        }
-    )
-    # Update the user document with the new meetings list
-    await users_collection.update_one(
-        {"_id": user_found["_id"]}, {"$set": {"meetings": user_found["meetings"]}}
-    )
-    # Add yourself as a participant
-    created_meeting["participants"] = [
-        {
-            "user_id": str(user_found["_id"]),
-            "status": models.MeetingStatus.needs_acceptance.value,
-        }
-    ]
+
+    group = await get_group(meeting.group_id)
+    if "meetings" not in group:
+        group["meetings"] = []
+    group["meetings"].append(get_meeting_card(created_meeting))
+    await groups_collection.find_one_and_update({"_id": group["_id"]}, {"$set": group})
+
+    created_meeting["participants"] = []
+    for group_user in group["users"]:
+        user_found = await get_user(group_user["_id"])
+        if user_found.get("meetings") is None:
+            user_found["meetings"] = []
+        user_found["meetings"].append(
+            {
+                "meeting_id": str(created_meeting["_id"]),
+                "status": (
+                    models.MeetingStatus.needs_acceptance.value
+                    if str(user_found["_id"]) != user.id
+                    else models.MeetingStatus.accepted.value
+                ),
+            }
+        )
+        await users_collection.update_one(
+            {"_id": user_found["_id"]}, {"$set": {"meetings": user_found["meetings"]}}
+        )
+
+        created_meeting["participants"].append(
+            {
+                "user_id": str(user_found["_id"]),
+                "username": user_found["username"],
+                "status": (
+                    models.MeetingStatus.needs_acceptance.value
+                    if str(user_found["_id"]) != user.id
+                    else models.MeetingStatus.accepted.value
+                ),
+            }
+        )
+
     await meetings_collection.update_one(
         {"_id": created_meeting["_id"]},
         {"$set": {"participants": created_meeting["participants"]}},
@@ -454,6 +470,7 @@ async def show_meeting_details(
         status=models.MeetingStatus.accepted.value,
     )
 
+    group = await get_group(meeting["group_id"])
     meeting_invites = user_found.get("meetings", [])
     for invite in meeting_invites:
         if invite["meeting_id"] == id:
@@ -461,8 +478,8 @@ async def show_meeting_details(
                 id=str(meeting["_id"]),
                 title=meeting["title"],
                 start=meeting["start"],
-                group_id=str(meeting["group_id"]),
-                group_name=str(meeting["group_id"]),  # TODO: get group name
+                group_id=str(group["_id"]),
+                group_name=group["name"],
                 admin=admin,
                 description=meeting["description"],
                 participants=participants,
@@ -545,6 +562,30 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
     }
 
     if len(meeting_dict) >= 1:
+        group = await get_group(meeting_dict["group_id"])
+        for i, m in enumerate(group["meetings"]):
+            if m["_id"] == id:
+                m.update(meeting_dict)
+                group["meetings"][i] = m
+                break
+        await groups_collection.find_one_and_update(
+            {"_id": group["_id"]}, {"$set": group}
+        )
+
+        meeting_found = await get_meeting(id)
+        for u in meeting_found["participants"]:
+            user = await get_user(u["user_id"])
+            meetings = []
+            for i, m in enumerate(user["meetings"]):
+                if m["_id"] != id:
+                    m.update(meeting_dict)
+                    user["meetings"][i] = m
+                    break
+            user["meetings"] = meetings
+            await users_collection.find_one_and_update(
+                {"_id": user["_id"]}, {"$set": user}
+            )
+
         update_result = await meetings_collection.find_one_and_update(
             {"_id": ObjectId(id)},
             {"$set": meeting_dict},
@@ -565,6 +606,25 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
 
 @app.delete("/meetings/{id}", response_description="Delete a meeting")
 async def delete_meeting(id: str):
+    meeting = await get_meeting(id)
+    group = await get_group(meeting["group_id"])
+
+    meetings = []
+    for m in group["meetings"]:
+        if m["id"] != id:
+            meetings.append(m)
+    group["meetings"] = meetings
+    await groups_collection.find_one_and_update({"_id": group["_id"]}, {"$set": group})
+
+    for u in meeting["participants"]:
+        user = await get_user(u["user_id"])
+        meetings = []
+        for invite in user["meetings"]:
+            if invite["meeting_id"] != id:
+                meetings.append(invite)
+        user["meetings"] = meetings
+        await users_collection.find_one_and_update({"_id": user["_id"]}, {"$set": user})
+
     delete_result = await meetings_collection.delete_one({"_id": ObjectId(id)})
 
     if delete_result.deleted_count == 1:
@@ -690,9 +750,7 @@ async def create_group(
         user_found["groups"] = []
     user_found["groups"].append(group_card)
 
-    await users_collection.update_one(
-        {"_id": user_found["_id"]}, {"$set": user_found}
-    )
+    await users_collection.update_one({"_id": user_found["_id"]}, {"$set": user_found})
     return created_group
 
 
@@ -707,7 +765,9 @@ async def list_groups(user: schemas.AuthSchema = Depends(JWTBearer())):
     user_groups = user_found["groups"]
     group_ids = [ObjectId(group["_id"]) for group in user_groups]
 
-    return models.GroupCollection(groups=await groups_collection.find({"_id": {"$in": group_ids}}).to_list(100))
+    return models.GroupCollection(
+        groups=await groups_collection.find({"_id": {"$in": group_ids}}).to_list(100)
+    )
 
 
 @app.get(
@@ -771,7 +831,9 @@ async def delete_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer()))
     for user_id in user_ids_to_cleanup:
         user_found = await get_user(str(user_id))
         user_found["groups"] = [g for g in user_found["groups"] if g["_id"] != id]
-        await users_collection.find_one_and_update({"_id": user_id}, {"$set": user_found})
+        await users_collection.find_one_and_update(
+            {"_id": user_id}, {"$set": user_found}
+        )
 
     delete_result = await groups_collection.delete_one({"_id": ObjectId(id)})
     if delete_result.deleted_count == 1:
@@ -806,7 +868,7 @@ async def group_join(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
         if ObjectId(group_user["_id"]) == user_found["_id"]:
             return {"result": "ok"}
 
-    user_card = get_user_card(user_found) 
+    user_card = get_user_card(user_found)
     group_card = get_group_card(group_found)
 
     group_found["users"].append(user_card)
@@ -814,10 +876,39 @@ async def group_join(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
         user_found["groups"] = []
     user_found["groups"].append(group_card)
 
-    await users_collection.find_one_and_update({"_id": user_found["_id"]}, {"$set": user_found})
-    await groups_collection.find_one_and_update({"_id": group_found["_id"]}, {"$set": group_found})
+    await users_collection.find_one_and_update(
+        {"_id": user_found["_id"]}, {"$set": user_found}
+    )
+    await groups_collection.find_one_and_update(
+        {"_id": group_found["_id"]}, {"$set": group_found}
+    )
 
     return {"result": "ok"}
+
+
+@app.get(
+    "/groups/{id}/meetings",
+    response_description="List all meetings of the group",
+    response_model=schemas.MeetingCardCollection,
+    response_model_by_alias=False,
+)
+async def list_group_meetings(
+    id: str,
+    user: schemas.AuthSchema = Depends(JWTBearer()),
+):
+    _ = await get_user(user.id)
+    group = await get_group(id)
+    meetings = group.get("meetings", [])
+    for meeting in meetings:
+        meeting_found = await get_meeting(meeting["_id"])
+        meeting_tile = models.MeetingCardModel(
+            id=str(meeting_found["_id"]),
+            title=meeting_found["title"],
+            start=meeting_found["start"],
+        )
+        meetings.append(meeting_tile)
+
+    return schemas.MeetingCardCollection(meetings=meetings)
 
 
 # ********** Utils **********
@@ -845,11 +936,21 @@ async def get_group(group_id: str) -> dict:
 
 
 def get_user_card(user):
-    return models.UserCardModel(_id=user["_id"], username=user["username"]).model_dump(by_alias=True)
+    return models.UserCardModel(_id=user["_id"], username=user["username"]).model_dump(
+        by_alias=True
+    )
 
 
 def get_group_card(group):
-    return models.GroupCardModel(_id=group["_id"], name=group["name"]).model_dump(by_alias=True)
+    return models.GroupCardModel(_id=group["_id"], name=group["name"]).model_dump(
+        by_alias=True
+    )
+
+
+def get_meeting_card(meeting):
+    return models.MeetingCardModel(
+        id=str(meeting["_id"]), title=meeting["title"], start=meeting["start"]
+    ).model_dump(by_alias=True)
 
 
 async def meeting_in_user(user_id: str, meeting_id: str, status: str) -> dict:

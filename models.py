@@ -22,11 +22,12 @@ class MeetingTile(BaseModel):
     title: str
     start: str
     group_id: str
-    status: str
+    status: MeetingStatus
 
 
 class Participant(BaseModel):  # TODO: user_id as PyObjectId
     user_id: PyObjectId = Field(..., description="ID of the user")
+    username: str
     status: MeetingStatus = Field(
         ...,
         description="Status of the user for the meeting (accepted / needs acceptance / declined)",
@@ -38,6 +39,12 @@ class AgendaPoint(BaseModel):
     level: int = Field(
         ..., description="Level of indentation of the agenda point in the list"
     )
+
+
+class MeetingCardModel(BaseModel):
+    id: str
+    title: str
+    start: str
 
 
 class MeetingModel(BaseModel):
@@ -106,7 +113,7 @@ class UserModel(BaseModel):
     )
     groups: List["GroupCardModel"] = Field(
         [], description="List of groups the user belongs to"
-    ) 
+    )
     # schedule_link: str = Field(...)
     # allow_location_link: bool = Field(...)
     # model_config = ConfigDict(
@@ -216,7 +223,7 @@ class GroupModel(BaseModel):
     users: List[UserCardModel] = Field(
         [], description="List of users with access to the group"
     )
-    meetings: List[MeetingTile] = Field(
+    meetings: List[MeetingCardModel] = Field(
         [], description="List of meetings of the group"
     )
 
@@ -228,4 +235,3 @@ class GroupCollection(BaseModel):
 class UpdateGroupModel(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-

@@ -75,7 +75,6 @@ class MeetingCollection(BaseModel):
 
 
 class CreateMeeting(BaseModel):
-    admin_id: Optional[str] = None
     group_id: str
     title: str
     start: str
@@ -96,6 +95,10 @@ class UpdateMeetingStatus(BaseModel):
 
 class MeetingTileCollection(BaseModel):
     meetings: List[models.MeetingTile]
+
+
+class MeetingCardCollection(BaseModel):
+    meetings: List[models.MeetingCardModel]
 
 
 class ParticipantSchema(BaseModel):
