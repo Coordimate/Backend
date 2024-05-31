@@ -1,7 +1,7 @@
 import os
 
 import motor.motor_asyncio
-from fastapi import FastAPI, HTTPException, Body, status, Depends
+from fastapi import FastAPI, Request, HTTPException, Body, status, Depends
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import ReturnDocument#, ObjectId
@@ -613,6 +613,13 @@ def check_status(status: str) -> bool:
 
 # ********** Groups **********
 
+async def get_current_user(request: Request) -> models.UserModel:
+    user = request.state.user
+    if not user:
+        raise HTTPException(status_code=401, detail="User not authenticated")
+    return user
+
+
 @app.post(
     "/groups/",
     response_description="Create new group",
@@ -620,11 +627,19 @@ def check_status(status: str) -> bool:
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def createGroup(group: schemas.CreateGroupSchema = Body(...)):
+async def createGroup(
+    group: schemas.CreateGroupSchema = Body(...),
+    current_user: models.UserModel = Depends(get_current_user)  # Fetching the current user
+):
 
-    new_group = await group_collection.insert_one(
-        group.model_dump(by_alias=True, exclude={"id"})
-    )
+    # Add the current user to the list of users and admins
+    group.users.append(current_user)
+    group.admins.append(current_user)
+
+    # Convert the Pydantic model to a dictionary
+    group_dict = group.model_dump(by_alias=True, exclude={"id"})
+
+    new_group = await group_collection.insert_one(group_dict)
     created_group = await group_collection.find_one({"_id": new_group.inserted_id})
     return created_group
 

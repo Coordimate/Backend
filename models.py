@@ -61,6 +61,7 @@ class UserModel(BaseModel):
     email: EmailStr = Field(...)
     meetings: List[MeetingInvite] = Field([], description="List of meetings the user is invited to")
     schedule: List[TimeSlot] = Field([], description="List of busy time slots in the user's schedule")
+    groups: List['GroupModel'] = Field([], description="List of groups the user belongs to")  # Added groups field
     # schedule_link: str = Field(...)
     # allow_location_link: bool = Field(...)
     # model_config = ConfigDict(
@@ -161,6 +162,8 @@ class GroupModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     name: str = Field(...)
     description: str = Field(...)
+    users: List[UserModel] = Field([], description="List of users with access to the group")  # Added users field
+    admins: List[UserModel] = Field([], description="List of users who are admins of the group")  # Admins of the group
 
 #to list groups for each particular user. needs more by working with user ID's
 class GroupCollection(BaseModel):

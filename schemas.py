@@ -131,3 +131,5 @@ class CreateAgendaPoint(BaseModel):
 class CreateGroupSchema(BaseModel):
     name: str
     description: str
+    users: List[models.UserModel] = []
+    admins: List[models.UserModel] = []
