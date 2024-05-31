@@ -136,13 +136,10 @@ class CreateAgendaPoint(BaseModel):
 class CreateGroupSchema(BaseModel):
     name: str
     description: str
-<<<<<<< HEAD
     users: List[models.UserModel] = []
     admins: List[models.UserModel] = []
-=======
 
 
 class GroupInviteResponse(BaseModel):
     join_link: str
 
->>>>>>> 30f1c77b85527418d2ad9524c464b6158881ba25
