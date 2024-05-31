@@ -15,6 +15,9 @@ class RefreshTokenSchema(BaseModel):
 
 # ********** Users **********
 
+class NotificationsSchema(BaseModel):
+    fcm_token: str
+
 class AuthSchema(BaseModel):
     id: str
     is_access_token: bool
@@ -133,3 +136,8 @@ class CreateAgendaPoint(BaseModel):
 class CreateGroupSchema(BaseModel):
     name: str
     description: str
+
+
+class GroupInviteResponse(BaseModel):
+    join_link: str
+
