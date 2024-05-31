@@ -929,6 +929,34 @@ async def list_group_meetings(
     return schemas.MeetingCardCollection(meetings=response_meetings)
 
 
+# ********** Share Schedule ***********
+
+
+@app.get(
+    "/share_schedule",
+    response_description="Get link to share personal schedule",
+    response_model=schemas.ShareScheduleResponse,
+    response_model_by_alias=False,
+)
+async def share_personal_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
+    _ = await get_user(user.id)
+    link = f"coordimate://coordimate.com/users/{id}/schedule"
+    return schemas.ShareScheduleResponse(schedule_link=link)
+
+
+@app.get(
+    "/time_slots/{id}",
+    response_description="View schedule of a user",
+    response_model=schemas.TimeSlotCollection,
+    response_model_by_alias=False,
+)
+async def list_user_time_slots(id, user: schemas.AuthSchema = Depends(JWTBearer())):
+    _ = await get_user(user.id)
+    other_user = await get_user(id)
+    schedule = other_user.get("schedule", [])
+    return schemas.TimeSlotCollection(time_slots=schedule)
+
+
 # ********** Utils **********
 
 

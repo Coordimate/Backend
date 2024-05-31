@@ -67,6 +67,10 @@ class UpdateTimeSlot(BaseModel):
     length: Optional[float] = None
 
 
+class ShareScheduleResponse(BaseModel):
+    schedule_link: str
+
+
 # ********** Meeting Schema **********
 
 
