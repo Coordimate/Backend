@@ -943,7 +943,7 @@ async def share_personal_schedule(id, user: schemas.AuthSchema = Depends(JWTBear
 
 
 @app.get(
-    "/time_slots/{id}",
+    "/users/{id}/time_slots",
     response_description="View schedule of a user",
     response_model=schemas.TimeSlotCollection,
     response_model_by_alias=False,
