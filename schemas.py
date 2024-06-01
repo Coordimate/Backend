@@ -28,6 +28,11 @@ class AuthSchema(BaseModel):
     is_access_token: bool
 
 
+class ChangePasswordSchema(BaseModel):
+    old_password: str
+    new_password: str
+
+
 class AccountOut(BaseModel):
     id: str
     email: EmailStr

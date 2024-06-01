@@ -154,6 +154,25 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
     return created_user
 
 
+@app.post(
+    "/change_password",
+    response_description="Change user password",
+    status_code=status.HTTP_201_CREATED,
+    response_model_by_alias=False,
+)
+async def change_password(request: schemas.ChangePasswordSchema, user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
+
+    if not bcrypt.checkpw(
+        request.old_password.encode("utf-8"), user_found["password"]
+    ):
+        raise HTTPException(status_code=403, detail="Could not change password")
+
+    user_found["password"] = bcrypt.hashpw(request.new_password.encode("utf-8"), bcrypt.gensalt())
+    await users_collection.find_one_and_update({"_id": user_found["_id"]}, {"$set": user_found})
+    return { "result": "ok" }
+
+
 @app.get(
     "/users/",
     response_description="List all users",
