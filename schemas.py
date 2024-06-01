@@ -93,6 +93,7 @@ class CreateMeeting(BaseModel):
 class UpdateMeeting(BaseModel):
     admin_id: Optional[str] = None
     group_id: Optional[str] = None
+    is_finished: Optional[bool] = None
     title: Optional[str] = None
     start: Optional[str] = None
     description: Optional[str] = None

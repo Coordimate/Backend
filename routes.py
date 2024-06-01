@@ -147,9 +147,9 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
                 status_code=400,
                 detail=f"No password specified, our Google/Facebook Auth got us",
             )
-    new_user = await users_collection.insert_one(
-        user.model_dump(by_alias=True, exclude={"id"})
-    )
+    user_dict = user.model_dump(by_alias=True, exclude={"id"})
+    user_dict["fcm_token"] = "notoken"
+    new_user = await users_collection.insert_one(user_dict)
     created_user = await users_collection.find_one({"_id": new_user.inserted_id})
     return created_user
 
@@ -174,7 +174,7 @@ async def change_password(request: schemas.ChangePasswordSchema, user: schemas.A
 
 
 @app.get(
-    "/users/",
+    "/users",
     response_description="List all users",
     response_model=models.UserCollection,
     response_model_by_alias=False,
@@ -336,7 +336,7 @@ async def delete_time_slot(
 
 
 @app.post(
-    "/meetings/",
+    "/meetings",
     response_description="Add new meeting",
     response_model=models.MeetingModel,
     status_code=status.HTTP_201_CREATED,
@@ -418,7 +418,7 @@ async def list_meetings():
 
 
 @app.get(
-    "/meetings/",
+    "/meetings",
     response_description="List all meetings of a user",
     response_model=schemas.MeetingTileCollection,
     response_model_by_alias=False,
@@ -586,26 +586,26 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
     }
 
     if len(meeting_dict) >= 1:
-        group = await get_group(meeting_dict["group_id"])
-        for i, m in enumerate(group["meetings"]):
-            if m["_id"] == id:
-                m.update(meeting_dict)
-                group["meetings"][i] = m
+        meeting_found = await get_meeting(id)
+        group = await get_group(meeting_found["group_id"])
+        for i, invite in enumerate(group["meetings"]):
+            if invite["_id"] == id:
+                invite.update(meeting_dict)
+                group["meetings"][i] = invite
                 break
         await groups_collection.find_one_and_update(
             {"_id": group["_id"]}, {"$set": group}
         )
 
-        meeting_found = await get_meeting(id)
         updated_meeting = meeting_found.copy()
         updated_meeting.update(meeting_dict)
         for u in meeting_found["participants"]:
             user = await get_user(u["user_id"])
             meetings = []
-            for i, m in enumerate(user["meetings"]):
-                if m["_id"] != id:
-                    m.update(meeting_dict)
-                    user["meetings"][i] = m
+            for i, invite in enumerate(user["meetings"]):
+                if invite["meeting_id"] != id:
+                    invite.update(meeting_dict)
+                    user["meetings"][i] = invite
                     break
             user["meetings"] = meetings
             await users_collection.find_one_and_update(
@@ -642,7 +642,7 @@ async def delete_meeting(id: str):
 
     meetings = []
     for m in group["meetings"]:
-        if m["id"] != id:
+        if m["_id"] != id:
             meetings.append(m)
     group["meetings"] = meetings
     await groups_collection.find_one_and_update({"_id": group["_id"]}, {"$set": group})
@@ -761,7 +761,7 @@ async def delete_agenda_point(
 
 
 @app.post(
-    "/groups/",
+    "/groups",
     response_description="Create new group",
     response_model=models.GroupModel,
     status_code=status.HTTP_201_CREATED,
@@ -791,7 +791,7 @@ async def create_group(
 
 
 @app.get(
-    "/groups/",
+    "/groups",
     response_description="List all groups",
     response_model=models.GroupCollection,
     response_model_by_alias=False,

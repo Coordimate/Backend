@@ -55,6 +55,7 @@ class MeetingModel(BaseModel):
     admin_id: PyObjectId = Field(
         ..., description="ID of the user who created the meeting"
     )
+    is_finished: bool  = Field(False, description="Marks the meeting as compeleted")
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
@@ -103,7 +104,7 @@ class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
     password: Optional[str] = Field(...)  # because google users don't have passwords
-    fcm_token: str = Field("")
+    fcm_token: str = Field("no_token")
     email: EmailStr = Field(...)
     meetings: List[MeetingInvite] = Field(
         [], description="List of meetings the user is invited to"

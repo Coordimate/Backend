@@ -26,5 +26,8 @@ def notify_single_user(fcm_token, title, body):
         # Use token to target a specific user
         token=fcm_token,
     )
-    response = messaging.send(message)
-    print(response)
+    try:
+        response = messaging.send(message)
+        print(response)
+    except:
+        print("Couldn't notify user, fcm_token not valid")

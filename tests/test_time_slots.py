@@ -1,35 +1,24 @@
-import pytest
-
 from conftest import auth_header, post, patch, delete, get
 
 
-async def create_time_slot(token, day, start, length):
-    time_slot = {"day": day, "start": start, "length": length}
-    resp = await post("/time_slots", time_slot, auth_header(token))
-    yield resp
-    await delete(f"/time_slots/{resp['id']}", auth_header(token))
-
-
-@pytest.mark.anyio
-async def test_crud_time_slot(regular_token):
+def test_crud_time_slot(token):
     # Create
     time_slot = {"day": 3, "start": 8.0, "length": 2.0}
-    post_response = await post("/time_slots", time_slot, auth_header(regular_token))
+    post_response = post("/time_slots", time_slot, auth_header(token))
     time_slot_id = post_response["id"]
 
     time_slot_2 = {"day": 4, "start": 7.0, "length": 3.0}
-    post_response = await post("/time_slots", time_slot_2, auth_header(regular_token))
+    post_response = post("/time_slots", time_slot_2, auth_header(token))
     time_slot_id_2 = post_response["id"]
 
     # Update
     update_time_slot = {"day": 4}
-    await patch(f"/time_slots/{time_slot_id}", update_time_slot, auth_header(regular_token))
+    patch(f"/time_slots/{time_slot_id}", update_time_slot, auth_header(token))
 
     # Read
-    body = await get("/time_slots", auth_header(regular_token))
+    body = get("/time_slots", auth_header(token))
     created_first = None
     created_second = None
-    print(body)
     for ts in body["time_slots"]:
         if (
             ts["day"] == update_time_slot["day"]
@@ -47,6 +36,5 @@ async def test_crud_time_slot(regular_token):
     assert created_second is not None
 
     # Delete
-    await delete(f"/time_slots/{time_slot_id}", auth_header(regular_token))
-    await delete(f"/time_slots/{time_slot_id_2}", auth_header(regular_token))
-
+    delete(f"/time_slots/{time_slot_id}", auth_header(token))
+    delete(f"/time_slots/{time_slot_id_2}", auth_header(token))
