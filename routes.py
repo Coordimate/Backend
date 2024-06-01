@@ -942,7 +942,7 @@ async def list_group_meetings(
 )
 async def share_personal_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
     _ = await get_user(user.id)
-    link = f"coordimate://coordimate.com/users/{id}/schedule"
+    link = f"coordimate://coordimate.com/users/{id}/time_slots"
     return schemas.ShareScheduleResponse(schedule_link=link)
 
 
