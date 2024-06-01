@@ -777,9 +777,11 @@ async def create_group(
 )
 async def list_groups(user: schemas.AuthSchema = Depends(JWTBearer())):
     user_found = await get_user(user.id)
-    user_groups = user_found["groups"]
+    user_groups = user_found.get("groups", [])
+    if not user_groups:
+        return models.GroupCollection(groups=[])
+        
     group_ids = [ObjectId(group["_id"]) for group in user_groups]
-
     return models.GroupCollection(
         groups=await groups_collection.find({"_id": {"$in": group_ids}}).to_list(100)
     )
