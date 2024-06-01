@@ -21,8 +21,8 @@ def token():
     }
     response = post("/login", login_details, status_code=0)
     if "detail" in response:
-        post("/register", register_details).json()
-        response = post("/login", login_details).json()
+        post("/register", register_details)
+        response = post("/login", login_details, status_code=200)
     access_token = response["access_token"]
     return access_token
 
