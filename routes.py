@@ -224,7 +224,7 @@ async def delete_user(id: str):
 
 
 @app.get(
-    "/time_slots/",
+    "/time_slots",
     response_description="List all time slots",
     response_model=schemas.TimeSlotCollection,
     response_model_by_alias=False,
@@ -238,7 +238,7 @@ async def list_time_slots(user: schemas.AuthSchema = Depends(JWTBearer())):
 
 
 @app.post(
-    "/time_slots/",
+    "/time_slots",
     response_description="Add new time slot",
     response_model=models.TimeSlot,
     status_code=status.HTTP_201_CREATED,
@@ -903,6 +903,19 @@ async def group_join(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
     )
 
     return {"result": "ok"}
+
+
+@app.get(
+    "/groups/{id}/time_slots",
+    response_description="View schedule of a user",
+    response_model=schemas.TimeSlotCollection,
+    response_model_by_alias=False,
+)
+async def group_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
+    _ = await get_user(user.id)
+    group = await get_group(id)
+    schedule = group.get("schedule", [])
+    return schemas.TimeSlotCollection(time_slots=schedule)
 
 
 @app.get(
