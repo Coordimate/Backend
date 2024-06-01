@@ -13,18 +13,32 @@ def token():
     register_details = {
         "username": "user",
         "email": "user@mail.com",
-        "password": "user"
+        "password": "user",
     }
-    login_details = {
-        "email": "user@mail.com",
-        "password": "user"
-    }
+    login_details = {"email": "user@mail.com", "password": "user"}
     response = post("/login", login_details, status_code=0)
     if "detail" in response:
         post("/register", register_details)
         response = post("/login", login_details, status_code=200)
     access_token = response["access_token"]
     return access_token
+
+
+def create_user(id):
+    user_data = {
+        "username": f"user{id}",
+        "email": f"user{id}@mail.com",
+        "password": f"password",
+    }
+    post("/register", user_data)
+    resp = post("/login", user_data, status_code=200)
+    access_token = resp["access_token"]
+    resp = get("/me", auth_header(access_token))
+    return resp["id"], access_token
+
+
+def delete_user(id, token):
+    delete(f"/users/{id}", auth_header(token))
 
 
 def auth_header(token: str):
@@ -76,4 +90,3 @@ def delete(uri, headers={}, status_code=204):
         except Exception as e:
             print("DELETE failed:", resp.status_code, json.dumps(resp.json(), indent=2))
             raise e
-

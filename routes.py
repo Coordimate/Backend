@@ -16,6 +16,7 @@ import bcrypt
 import auth
 from auth import JWTBearer
 from firebase_utils import notify_single_user
+from src.group_schedule_manager import GroupsScheduleManager
 
 
 load_dotenv()
@@ -141,7 +142,9 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
         raise HTTPException(status_code=409, detail="User already exists")
     if user.auth_type is None:
         if user.password is not None:
-            user.password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
+            user.password = bcrypt.hashpw(
+                user.password.encode("utf-8"), bcrypt.gensalt()
+            )
         else:
             raise HTTPException(
                 status_code=400,
@@ -160,17 +163,22 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-async def change_password(request: schemas.ChangePasswordSchema, user: schemas.AuthSchema = Depends(JWTBearer())):
+async def change_password(
+    request: schemas.ChangePasswordSchema,
+    user: schemas.AuthSchema = Depends(JWTBearer()),
+):
     user_found = await get_user(user.id)
 
-    if not bcrypt.checkpw(
-        request.old_password.encode("utf-8"), user_found["password"]
-    ):
+    if not bcrypt.checkpw(request.old_password.encode("utf-8"), user_found["password"]):
         raise HTTPException(status_code=403, detail="Could not change password")
 
-    user_found["password"] = bcrypt.hashpw(request.new_password.encode("utf-8"), bcrypt.gensalt())
-    await users_collection.find_one_and_update({"_id": user_found["_id"]}, {"$set": user_found})
-    return { "result": "ok" }
+    user_found["password"] = bcrypt.hashpw(
+        request.new_password.encode("utf-8"), bcrypt.gensalt()
+    )
+    await users_collection.find_one_and_update(
+        {"_id": user_found["_id"]}, {"$set": user_found}
+    )
+    return {"result": "ok"}
 
 
 @app.get(
@@ -205,7 +213,9 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
         k: v for k, v in user.model_dump(by_alias=True).items() if v is not None
     }
     if "password" in user_dict:
-        user_dict["password"] = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
+        user_dict["password"] = bcrypt.hashpw(
+            user.password.encode("utf-8"), bcrypt.gensalt()
+        )
 
     if len(user_dict) >= 1:
         update_result = await users_collection.find_one_and_update(
@@ -777,6 +787,7 @@ async def create_group(
     group_dict = group.model_dump(by_alias=True, exclude={"id"})
     group_dict["admin"] = user_card
     group_dict["users"] = [user_card]
+    group_dict["schedule"] = user_found.get("schedule", [])
 
     new_group = await groups_collection.insert_one(group_dict)
     created_group = await groups_collection.find_one({"_id": new_group.inserted_id})
@@ -801,7 +812,7 @@ async def list_groups(user: schemas.AuthSchema = Depends(JWTBearer())):
     user_groups = user_found.get("groups", [])
     if not user_groups:
         return models.GroupCollection(groups=[])
-        
+
     group_ids = [ObjectId(group["_id"]) for group in user_groups]
     return models.GroupCollection(
         groups=await groups_collection.find({"_id": {"$in": group_ids}}).to_list(100)
@@ -898,7 +909,7 @@ async def group_invite(id: str, user: schemas.AuthSchema = Depends(JWTBearer()))
     "/groups/{id}/join",
     response_description="Join a group using the invite link",
 )
-async def group_join(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
+async def join_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
     user_found = await get_user(user.id)
     group_found = await get_group(id)
 
@@ -913,6 +924,9 @@ async def group_join(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
     if "groups" not in user_found:
         user_found["groups"] = []
     user_found["groups"].append(group_card)
+
+    gsm = GroupsScheduleManager(group_schedule=group_found["schedule"])
+    group_found["schedule"] = gsm.add_user(user_found["schedule"])
 
     await users_collection.find_one_and_update(
         {"_id": user_found["_id"]}, {"$set": user_found}

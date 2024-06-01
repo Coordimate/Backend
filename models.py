@@ -55,7 +55,7 @@ class MeetingModel(BaseModel):
     admin_id: PyObjectId = Field(
         ..., description="ID of the user who created the meeting"
     )
-    is_finished: bool  = Field(False, description="Marks the meeting as compeleted")
+    is_finished: bool = Field(False, description="Marks the meeting as compeleted")
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
@@ -226,6 +226,9 @@ class GroupModel(BaseModel):
     )
     meetings: List[MeetingCardModel] = Field(
         [], description="List of meetings of the group"
+    )
+    schedule: List[TimeSlot] = Field(
+        [], description="List of busy time slots in the group's schedule"
     )
 
 
