@@ -1,45 +1,32 @@
 import pytest
 
-from conftest import auth_header
+from conftest import auth_header, post, patch, delete, get
+
+
+async def create_time_slot(token, day, start, length):
+    time_slot = {"day": day, "start": start, "length": length}
+    resp = await post("/time_slots", time_slot, auth_header(token))
+    yield resp
+    await delete(f"/time_slots/{resp['id']}", auth_header(token))
 
 
 @pytest.mark.anyio
-async def test_crud_time_slot(client, regular_token):
+async def test_crud_time_slot(regular_token):
     # Create
     time_slot = {"day": 3, "start": 8.0, "length": 2.0}
-    post_response = await client.post(
-        "http://localhost:8000/time_slots/",
-        json=time_slot,
-        headers=auth_header(regular_token),
-    )
-    assert post_response.status_code == 201
-    time_slot_id = post_response.json()["id"]
+    post_response = await post("/time_slots", time_slot, auth_header(regular_token))
+    time_slot_id = post_response["id"]
 
     time_slot_2 = {"day": 4, "start": 7.0, "length": 3.0}
-    post_response = await client.post(
-        "http://localhost:8000/time_slots/",
-        json=time_slot_2,
-        headers=auth_header(regular_token),
-    )
-    assert post_response.status_code == 201
-    time_slot_id_2 = post_response.json()["id"]
+    post_response = await post("/time_slots", time_slot_2, auth_header(regular_token))
+    time_slot_id_2 = post_response["id"]
 
     # Update
     update_time_slot = {"day": 4}
-    patch_response = await client.patch(
-        f"http://localhost:8000/time_slots/{time_slot_id}",
-        json=update_time_slot,
-        headers=auth_header(regular_token),
-    )
-    assert patch_response.status_code == 200
+    await patch(f"/time_slots/{time_slot_id}", update_time_slot, auth_header(regular_token))
 
     # Read
-    get_response = await client.get(
-        "http://localhost:8000/time_slots/", headers=auth_header(regular_token)
-    )
-    assert get_response.status_code == 200
-
-    body = get_response.json()
+    body = await get("/time_slots", auth_header(regular_token))
     created_first = None
     created_second = None
     print(body)
@@ -60,13 +47,6 @@ async def test_crud_time_slot(client, regular_token):
     assert created_second is not None
 
     # Delete
-    delete_response = await client.delete(
-        f"http://localhost:8000/time_slots/{time_slot_id}",
-        headers=auth_header(regular_token),
-    )
-    assert delete_response.status_code == 204
-    delete_response = await client.delete(
-        f"http://localhost:8000/time_slots/{time_slot_id_2}",
-        headers=auth_header(regular_token),
-    )
-    assert delete_response.status_code == 204
+    await delete(f"/time_slots/{time_slot_id}", auth_header(regular_token))
+    await delete(f"/time_slots/{time_slot_id_2}", auth_header(regular_token))
+
