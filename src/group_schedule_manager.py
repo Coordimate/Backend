@@ -17,18 +17,42 @@ class GroupsScheduleManager:
         self.user_schedules: List[Schedule] = [
             self.to_internal_representation(us) for us in user_schedules
         ]
-        self.group_schedule = self.to_internal_representation(group_schedule)
+        self.group_meetings: list[dict] = []
+        self.group_schedule = self.to_internal_representation(
+            group_schedule, group_schedule=True
+        )
 
-    @staticmethod
-    def to_internal_representation(time_slots: list[dict]) -> Schedule:
-        return [(ts["day"], ts["start"], ts["length"]) for ts in time_slots]
-
-    @staticmethod
-    def from_internal_representation(time_slots: Schedule) -> list[dict]:
+    def to_internal_representation(
+        self, time_slots: list[dict], group_schedule=False
+    ) -> Schedule:
+        if group_schedule:
+            self.group_meetings = [
+                ts
+                for ts in time_slots
+                if ("is_meeting" in ts and ts["is_meeting"] == True)
+            ]
+        time_slots = [
+            ts
+            for ts in time_slots
+            if ("is_meeting" not in ts or ts["is_meeting"] == False)
+        ]
         return [
-            {"_id": i, "day": d, "start": s, "length": l}
+            (ts["day"], ts["start"], ts["length"])
+            for ts in time_slots
+            if ("is_meeting" not in ts or ts["is_meeting"] == False)
+        ]
+
+    def from_internal_representation(self, time_slots: Schedule) -> list[dict]:
+        group_schedule = [
+            {"_id": i, "day": d, "start": s, "length": l, "is_meeting": False}
             for (i, (d, s, l)) in enumerate(time_slots)
         ]
+        l = len(group_schedule)
+        for i in range(len(self.group_meetings)):
+            meeting = self.group_meetings[i]
+            meeting["_id"] = l + i
+            group_schedule.append(meeting)
+        return group_schedule
 
     def compute_group_schedule(self) -> list[dict]:
         # Transfer intervals from (day, start, length) to (start, end) representation
