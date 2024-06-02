@@ -203,7 +203,7 @@ async def show_user(id: str):
     return user
 
 
-@app.put(
+@app.patch(
     "/users/{id}",
     response_description="Update a user",
     response_model=models.UserModel,
@@ -213,10 +213,6 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
     user_dict = {
         k: v for k, v in user.model_dump(by_alias=True).items() if v is not None
     }
-    if "password" in user_dict:
-        user_dict["password"] = bcrypt.hashpw(
-            user.password.encode("utf-8"), bcrypt.gensalt()
-        )
 
     if len(user_dict) >= 1:
         update_result = await users_collection.find_one_and_update(
@@ -235,19 +231,22 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
 @app.delete("/users/{id}", response_description="Delete a user")
 async def delete_user(id: str):
     user = await get_user(id)
+
     user_meetings = user.get("meetings", [])
     for meeting in user_meetings:
-        for participant in meeting.get("participants", []):
-            delete_res = await meetings_collection.update_one(
-                {"_id": ObjectId(meeting["meeting_id"])},
-                {"$pull": {"participants": {"user_id": participant["user_id"]}}},
-            )
-            print(delete_res.modified_count)
-    delete_result = await users_collection.delete_one({"_id": ObjectId(id)})
-    if delete_result.deleted_count == 1:
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
+        await meetings_collection.update_one(
+            {"_id": ObjectId(meeting["meeting_id"])},
+            {"$pull": {"participants": {"user_id": str(user["_id"])}}},
+        )
 
-    raise HTTPException(status_code=404, detail=f"user {id} not found")
+    for group in user.get("groups", []):
+        await groups_collection.update_one(
+            {"_id": ObjectId(group["_id"])},
+            {"$pull": {"users": {"_id": str(user["_id"])}}}
+        )
+
+    await users_collection.delete_one({"_id": ObjectId(id)})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ********** Time Slots **********
@@ -467,6 +466,17 @@ async def show_meeting(id: str):
     if (
         meeting := await meetings_collection.find_one({"_id": ObjectId(id)})
     ) is not None:
+
+        participants = []
+        for meeting_participant in meeting["participants"]:
+            participant_user = await get_user(str(meeting_participant["user_id"]))
+            participant = models.Participant(
+                user_id=str(participant_user["_id"]),
+                username=participant_user["username"],
+                status=meeting_participant["status"],
+            )
+            participants.append(participant)
+        meeting["participants"] = participants
         return meeting
 
     raise HTTPException(status_code=404, detail=f"meeting {id} not found")
@@ -829,12 +839,15 @@ async def list_groups(user: schemas.AuthSchema = Depends(JWTBearer())):
 async def show_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
     _ = await get_user(user.id)
     if (group := await groups_collection.find_one({"_id": ObjectId(id)})) is not None:
+        group["admin"] = get_user_card(await get_user(group["admin"]["_id"]))
+        group["users"] = [get_user_card(await get_user(u["_id"])) for u in group["users"]]
+        group["meetings"] = [get_meeting_card(await get_meeting(m["_id"])) for m in group.get("meetings", [])]
         return group
 
     raise HTTPException(status_code=404, detail=f"group {id} not found")
 
 
-@app.put(
+@app.patch(
     "/groups/{id}",
     response_description="Update a group",
     response_model=models.GroupModel,

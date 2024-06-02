@@ -1,8 +1,9 @@
-from conftest import auth_header, create_user, delete_user, post, patch, delete, get
+from conftest import auth_header, post, patch, delete, get
+import crud_utils
 
 
 def test_group_schedule_equal_to_schedule_of_admin_on_creation():
-    admin_id, admin_token = create_user(0)
+    admin_id, admin_token = crud_utils.create_user(0)
     time_slot = {"day": 0, "start": 8.0, "length": 2.0}
     post("/time_slots", time_slot, auth_header(admin_token))
 
@@ -13,17 +14,17 @@ def test_group_schedule_equal_to_schedule_of_admin_on_creation():
     assert group["schedule"] == admin["schedule"]
 
     delete(f"/groups/{group['id']}", auth_header(admin_token))
-    delete_user(admin_id, admin_token)
+    crud_utils.delete_user(admin_id, admin_token)
 
 
 def test_group_schedule_recomputed_when_new_user_joins():
-    admin_id, admin_token = create_user(0)
+    admin_id, admin_token = crud_utils.create_user(0)
     admin_time_slot_1 = {"day": 0, "start": 8.0, "length": 2.0}
     post("/time_slots", admin_time_slot_1, auth_header(admin_token))
     admin_time_slot_2 = {"day": 1, "start": 6.0, "length": 2.0}
     post("/time_slots", admin_time_slot_2, auth_header(admin_token))
 
-    user_id, user_token = create_user(1)
+    user_id, user_token = crud_utils.create_user(1)
     user_time_slot_1 = {"day": 1, "start": 7.0, "length": 2.0}
     post("/time_slots", user_time_slot_1, auth_header(user_token))
     user_time_slot_2 = {"day": 2, "start": 8.0, "length": 2.0}
@@ -49,5 +50,5 @@ def test_group_schedule_recomputed_when_new_user_joins():
     assert (1, 6, 3) in schedule
 
     delete(f"/groups/{group['id']}", auth_header(admin_token))
-    delete_user(user_id, user_token)
-    delete_user(admin_id, admin_token)
+    crud_utils.delete_user(user_id, user_token)
+    crud_utils.delete_user(admin_id, admin_token)
