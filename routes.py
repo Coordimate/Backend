@@ -927,7 +927,7 @@ async def join_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
     user_found["groups"].append(group_card)
 
     gsm = GroupsScheduleManager(group_schedule=group_found["schedule"])
-    group_found["schedule"] = gsm.add_user(user_found["schedule"])
+    group_found["schedule"] = gsm.add_user(user_found.get("schedule", []))
 
     await users_collection.find_one_and_update(
         {"_id": user_found["_id"]}, {"$set": user_found}
