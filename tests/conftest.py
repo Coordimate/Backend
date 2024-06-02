@@ -24,23 +24,6 @@ def token():
     return access_token
 
 
-def create_user(id):
-    user_data = {
-        "username": f"user{id}",
-        "email": f"user{id}@mail.com",
-        "password": f"password",
-    }
-    post("/register", user_data)
-    resp = post("/login", user_data, status_code=200)
-    access_token = resp["access_token"]
-    resp = get("/me", auth_header(access_token))
-    return resp["id"], access_token
-
-
-def delete_user(id, token):
-    delete(f"/users/{id}", auth_header(token))
-
-
 def auth_header(token: str):
     return {"Authorization": f"Bearer {token}"}
 
@@ -77,7 +60,11 @@ def get(uri, headers={}, status_code=200):
         try:
             assert resp.status_code == status_code
         except Exception as e:
-            print("GET failed:", resp.status_code, json.dumps(resp.json(), indent=2))
+            print("GET failed:", resp.status_code)
+            try:
+                print(json.dumps(resp.json(), indent=2))
+            except:
+                pass
             raise e
     return resp.json()
 
@@ -88,5 +75,9 @@ def delete(uri, headers={}, status_code=204):
         try:
             assert resp.status_code == status_code
         except Exception as e:
-            print("DELETE failed:", resp.status_code, json.dumps(resp.json(), indent=2))
+            print("DELETE failed:", resp.status_code)
+            try:
+                print(json.dumps(resp.json(), indent=2))
+            except:
+                pass
             raise e
