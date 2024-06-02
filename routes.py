@@ -328,6 +328,10 @@ async def delete_time_slot(
     user_found = await get_user(user.id)
 
     await time_slots_collection.delete_one({"_id": ObjectId(slot_id)})
+
+    for group in user_found.get("groups", []):
+        await groups_collection.update_one({"_id": ObjectId(group["_id"])}, {"$pull": {"schedule": ObjectId(slot_id)}})
+
     delete_result = await users_collection.update_one(
         {"_id": ObjectId(user_found["_id"])}, {"$pull": {"schedule": {"_id": ObjectId(slot_id)}}}
     )
