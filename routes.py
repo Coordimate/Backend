@@ -1,4 +1,5 @@
 import os
+import datetime
 
 import motor.motor_asyncio
 from fastapi import FastAPI, HTTPException, Body, status, Depends
@@ -370,6 +371,7 @@ async def create_meeting(
     if "meetings" not in group:
         group["meetings"] = []
     group["meetings"].append(get_meeting_card(created_meeting))
+    group["schedule"].append(isoformat_to_timeslot(len(group["schedule"]), meeting.start))
     await groups_collection.find_one_and_update({"_id": group["_id"]}, {"$set": group})
 
     created_meeting["participants"] = []
@@ -1087,3 +1089,9 @@ def check_status(status: str) -> bool:
     if status not in models.MeetingStatus.__members__:
         raise HTTPException(status_code=400, detail="Invalid status")
     return True
+
+
+def isoformat_to_timeslot(id: int, time_string: str):
+    date = datetime.datetime.fromisoformat(time_string)
+    return models.TimeSlot(_id=id, day=date.weekday(), start=date.hour, length=1, is_meeting=True).model_dump(by_alias=True)
+
