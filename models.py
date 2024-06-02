@@ -21,7 +21,7 @@ class MeetingTile(BaseModel):
     id: str
     title: str
     start: str
-    group_id: str
+    group: "GroupCardModel"
     status: MeetingStatus
 
 

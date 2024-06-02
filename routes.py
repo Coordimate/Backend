@@ -442,13 +442,12 @@ async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
             {"_id": ObjectId(invite["meeting_id"])}
         )
         if meeting is not None:
+            group = await get_group(meeting["group_id"])
             meeting_tile = models.MeetingTile(
                 id=str(meeting["_id"]),
                 title=meeting["title"],
                 start=meeting["start"],
-                group_id=str(
-                    meeting["group_id"]
-                ),  # Assuming group_id is stored as ObjectId
+                group=models.GroupCardModel(_id=group["_id"], name=group["name"]),
                 status=invite["status"],
             )
             meetings.append(meeting_tile)
