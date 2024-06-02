@@ -59,6 +59,7 @@ class MeetingModel(BaseModel):
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     description: Optional[str] = Field(None, description="Description of the meeting")
+    summary: Optional[str] = Field("", description="Summary of a finished meeting")
     participants: List[Participant] = Field(
         [], description="List of participants in the meeting"
     )

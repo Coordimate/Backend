@@ -97,6 +97,7 @@ class UpdateMeeting(BaseModel):
     title: Optional[str] = None
     start: Optional[str] = None
     description: Optional[str] = None
+    summary: Optional[str] = None
 
 
 class UpdateMeetingStatus(BaseModel):
