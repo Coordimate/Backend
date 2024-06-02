@@ -80,7 +80,7 @@ class MeetingModel(BaseModel):
 
 
 class TimeSlot(BaseModel):
-    id: int = Field(..., alias="_id")
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     day: int = Field(...)
     start: float = Field(...)
     length: float = Field(...)
@@ -109,7 +109,7 @@ class UserModel(BaseModel):
     meetings: List[MeetingInvite] = Field(
         [], description="List of meetings the user is invited to"
     )
-    schedule: List[TimeSlot] = Field(
+    schedule: List[PyObjectId] = Field(
         [], description="List of busy time slots in the user's schedule"
     )
     groups: List["GroupCardModel"] = Field(
@@ -227,7 +227,7 @@ class GroupModel(BaseModel):
     meetings: List[MeetingCardModel] = Field(
         [], description="List of meetings of the group"
     )
-    schedule: List[TimeSlot] = Field(
+    schedule: List[PyObjectId] = Field(
         [], description="List of busy time slots in the group's schedule"
     )
 

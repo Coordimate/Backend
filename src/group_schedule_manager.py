@@ -44,13 +44,13 @@ class GroupsScheduleManager:
 
     def from_internal_representation(self, time_slots: Schedule) -> list[dict]:
         group_schedule = [
-            {"_id": i, "day": d, "start": s, "length": l, "is_meeting": False}
+            {"_id": str(i), "day": d, "start": s, "length": l, "is_meeting": False}
             for (i, (d, s, l)) in enumerate(time_slots)
         ]
         l = len(group_schedule)
         for i in range(len(self.group_meetings)):
             meeting = self.group_meetings[i]
-            meeting["_id"] = l + i
+            meeting["_id"] = str(l + i)
             group_schedule.append(meeting)
         return group_schedule
 
