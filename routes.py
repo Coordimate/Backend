@@ -423,9 +423,22 @@ async def create_meeting(
     response_model_by_alias=False,
 )
 async def list_meetings():
-    return schemas.MeetingCollection(
-        meetings=await meetings_collection.find().to_list(1000)
-    )
+    meetings = await meetings_collection.find().to_list(1000)
+
+    updated_meetings = []
+    for meeting in meetings:
+        participants = []
+        for meeting_participant in meeting["participants"]:
+            participant_user = await get_user(str(meeting_participant["user_id"]))
+            participant = models.Participant(
+                user_id=str(participant_user["_id"]),
+                username=participant_user["username"],
+                status=meeting_participant["status"],
+            )
+            participants.append(participant)
+        meeting["participants"] = participants
+        updated_meetings.append(meeting)
+    return schemas.MeetingCollection(meetings=udpated_meetings)
 
 
 @app.get(
@@ -493,14 +506,11 @@ async def show_meeting_details(
 ):
     user_found = await get_user(user.id)
     meeting = await get_meeting(id)
-    # meeting = MeetingModel
+
     meeting_participants = meeting.get("participants", [])
     participants = []
-    # meeting_participants = List[Participant]
     for meeting_participant in meeting_participants:
-        # meeting_participant = Participant
         participant_user = await get_user(str(meeting_participant["user_id"]))
-        # participant_user = UserModel
         participant = schemas.ParticipantSchema(
             user_id=str(participant_user["_id"]),
             user_username=participant_user["username"],
@@ -544,10 +554,10 @@ async def change_participant_status(
     participant: schemas.UpdateParticipantStatus = Body(...),
     user: schemas.AuthSchema = Depends(JWTBearer()),
 ):
-    # user here is the admin
     _ = await get_user(user.id)
     await get_user(participant.user_id)
     await get_meeting(id)
+
     check_status(participant.status)
     await meeting_in_user(participant.user_id, id, participant.status)
     await participant_in_meeting(participant.user_id, id, participant.status)
