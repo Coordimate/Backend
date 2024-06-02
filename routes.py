@@ -902,7 +902,7 @@ async def group_invite(id: str, user: schemas.AuthSchema = Depends(JWTBearer()))
     _ = await get_user(user.id)
     _ = await get_group(id)
 
-    link = f"coordimate://coordimate.com/groups/join/{id}"
+    link = f"coordimate://coordimate.com/groups/{id}/join"
     return schemas.GroupInviteResponse(join_link=link)
 
 
