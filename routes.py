@@ -651,7 +651,7 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
 
         update_result = await meetings_collection.find_one_and_update(
             {"_id": ObjectId(id)},
-            {"$set": meeting_dict},
+            {"$set": updated_meeting},
             return_document=ReturnDocument.AFTER,
         )
         if update_result is not None:
