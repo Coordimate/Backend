@@ -435,7 +435,7 @@ async def list_meetings():
             participants.append(participant)
         meeting["participants"] = participants
         updated_meetings.append(meeting)
-    return schemas.MeetingCollection(meetings=udpated_meetings)
+    return schemas.MeetingCollection(meetings=updated_meetings)
 
 
 @app.get(
@@ -992,13 +992,18 @@ async def list_group_meetings(
     meetings = group.get("meetings", [])
     response_meetings = []
     for meeting in meetings:
-        meeting_found = await get_meeting(meeting["_id"])
-        meeting_tile = models.MeetingCardModel(
-            _id=str(meeting_found["_id"]),
-            title=meeting_found["title"],
-            start=meeting_found["start"],
+        meeting_found = await meetings_collection.find_one(
+            {"_id": ObjectId(meeting["_id"])}
         )
-        response_meetings.append(meeting_tile)
+        if meeting_found is not None:
+            meeting_tile = models.MeetingTile(
+                id=str(meeting["_id"]),
+                title=meeting_found["title"],
+                start=meeting_found["start"],
+                group=models.GroupCardModel(_id=group["_id"], name=group["name"]),
+                status=models.MeetingStatus.accepted,
+            )
+            response_meetings.append(meeting_tile)
 
     return schemas.MeetingCardCollection(meetings=response_meetings)
 
