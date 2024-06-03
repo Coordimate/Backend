@@ -980,7 +980,7 @@ async def group_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
 @app.get(
     "/groups/{id}/meetings",
     response_description="List all meetings of the group",
-    response_model=schemas.MeetingCardCollection,
+    response_model=schemas.MeetingTileCollection,
     response_model_by_alias=False,
 )
 async def list_group_meetings(
