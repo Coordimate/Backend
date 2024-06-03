@@ -530,7 +530,7 @@ async def show_meeting_details(
                 id=str(meeting["_id"]),
                 title=meeting["title"],
                 start=meeting["start"],
-                summary=meeting["summary"],
+                summary=meeting.get("summary", ""),
                 is_finished=meeting.get("is_finished", False),
                 group_id=str(group["_id"]),
                 group_name=group["name"],
@@ -1027,7 +1027,11 @@ async def share_personal_schedule(user: schemas.AuthSchema = Depends(JWTBearer()
 async def list_user_time_slots(id, user: schemas.AuthSchema = Depends(JWTBearer())):
     _ = await get_user(user.id)
     other_user = await get_user(id)
-    schedule = other_user.get("schedule", [])
+
+    schedule = await time_slots_collection.find({"_id": {"$in": other_user.get("schedule", [])}}).to_list(1000)
+    for i in range(len(schedule)):
+        schedule[i]["_id"] = str(schedule[i]["_id"])
+
     return schemas.TimeSlotCollection(time_slots=schedule)
 
 
