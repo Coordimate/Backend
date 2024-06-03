@@ -1012,9 +1012,9 @@ async def list_group_meetings(
     response_model=schemas.ShareScheduleResponse,
     response_model_by_alias=False,
 )
-async def share_personal_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
-    _ = await get_user(user.id)
-    link = f"coordimate://coordimate.com/users/{id}/time_slots"
+async def share_personal_schedule(user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
+    link = f"coordimate://coordimate.com/users/{user_found['_id']}/time_slots"
     return schemas.ShareScheduleResponse(schedule_link=link)
 
 
