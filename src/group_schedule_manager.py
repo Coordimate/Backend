@@ -15,16 +15,17 @@ class GroupsScheduleManager:
         group_schedule: list[dict] = [],
     ) -> None:
         self.user_schedules: List[Schedule] = [
-            self.to_internal_representation(us) for us in user_schedules
+            self._to_internal_representation(us) for us in user_schedules
         ]
         self.group_meetings: list[dict] = []
-        self.group_schedule = self.to_internal_representation(
+        self.group_schedule = self._to_internal_representation(
             group_schedule, group_schedule=True
         )
 
-    def to_internal_representation(
+    def _to_internal_representation(
         self, time_slots: list[dict], group_schedule=False
     ) -> Schedule:
+        print("TIME_SLOTS", time_slots)
         if group_schedule:
             self.group_meetings = [
                 ts
@@ -42,7 +43,7 @@ class GroupsScheduleManager:
             if ("is_meeting" not in ts or ts["is_meeting"] == False)
         ]
 
-    def from_internal_representation(self, time_slots: Schedule) -> list[dict]:
+    def _from_internal_representation(self, time_slots: Schedule) -> list[dict]:
         group_schedule = [
             {"_id": str(i), "day": d, "start": s, "length": l, "is_meeting": False}
             for (i, (d, s, l)) in enumerate(time_slots)
@@ -88,10 +89,10 @@ class GroupsScheduleManager:
                     (day_start, hour_start, hour_end - hour_start)
                 )
         self.group_schedule = dsl_group_schedule
-        return self.from_internal_representation(dsl_group_schedule)
+        return self._from_internal_representation(dsl_group_schedule)
 
     def add_user(self, user_schedule: list[dict]) -> list[dict]:
-        _user_schedule = self.to_internal_representation(user_schedule)
+        _user_schedule = self._to_internal_representation(user_schedule)
         if self.group_schedule is None:
             self.compute_group_schedule()
         self.user_schedules.append(_user_schedule)
@@ -101,4 +102,4 @@ class GroupsScheduleManager:
         self.compute_group_schedule()
         self.user_schedules = user_schedules
 
-        return self.from_internal_representation(self.group_schedule)
+        return self._from_internal_representation(self.group_schedule)

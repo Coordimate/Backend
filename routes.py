@@ -332,13 +332,10 @@ async def delete_time_slot(
     for group in user_found.get("groups", []):
         await groups_collection.update_one({"_id": ObjectId(group["_id"])}, {"$pull": {"schedule": ObjectId(slot_id)}})
 
-    delete_result = await users_collection.update_one(
+    await users_collection.update_one(
         {"_id": ObjectId(user_found["_id"])}, {"$pull": {"schedule": {"_id": ObjectId(slot_id)}}}
     )
-    if delete_result.modified_count == 1:
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-    raise HTTPException(status_code=404, detail=f"time_slot {id} not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ********** Meetings **********
@@ -635,7 +632,7 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
             user = await get_user(u["user_id"])
             meetings = []
             for i, invite in enumerate(user["meetings"]):
-                if invite["meeting_id"] != id:
+                if invite["meeting_id"] == id:
                     invite.update(meeting_dict)
                     user["meetings"][i] = invite
                     break
@@ -975,7 +972,10 @@ async def group_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
     schedule = await time_slots_collection.find({"_id": {"$in": group.get("schedule", [])}}).to_list(1000)
     for i in range(len(schedule)):
         schedule[i]["_id"] = str(schedule[i]["_id"])
-    return schemas.TimeSlotCollection(time_slots=schedule)
+
+    gsm = GroupsScheduleManager([schedule], schedule)
+    group_schedule = [models.TimeSlot(**params) for params in gsm.compute_group_schedule()]
+    return schemas.TimeSlotCollection(time_slots=group_schedule)
 
 
 @app.get(

@@ -36,8 +36,8 @@ def test_group_schedule_recomputed_when_new_user_joins():
         f"/groups/{group['id']}/join", headers=auth_header(user_token), status_code=200
     )
 
-    group = get(f"/groups/{group['id']}", auth_header(admin_token))
-    schedule = [(ts["day"], ts["start"], ts["length"]) for ts in group["schedule"]]
+    group_schedule = get(f"/groups/{group['id']}/time_slots", auth_header(admin_token))
+    schedule = [(ts["day"], ts["start"], ts["length"]) for ts in group_schedule["time_slots"]]
     ats1 = tuple(admin_time_slot_1.values())
     ats2 = tuple(admin_time_slot_2.values())
     uts1 = tuple(user_time_slot_1.values())
