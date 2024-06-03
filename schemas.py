@@ -125,6 +125,7 @@ class MeetingDetails(BaseModel):
     start: str
     is_finished: bool
     description: str
+    summary: str
     group_id: str
     group_name: str
     admin: ParticipantSchema

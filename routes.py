@@ -530,6 +530,7 @@ async def show_meeting_details(
                 id=str(meeting["_id"]),
                 title=meeting["title"],
                 start=meeting["start"],
+                summary=meeting["summary"],
                 is_finished=meeting.get("is_finished", False),
                 group_id=str(group["_id"]),
                 group_name=group["name"],
