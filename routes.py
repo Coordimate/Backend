@@ -1005,7 +1005,7 @@ async def list_group_meetings(
             )
             response_meetings.append(meeting_tile)
 
-    return schemas.MeetingCardCollection(meetings=response_meetings)
+    return schemas.MeetingTileCollection(meetings=response_meetings)
 
 
 # ********** Share Schedule ***********
