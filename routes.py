@@ -630,13 +630,11 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
         updated_meeting.update(meeting_dict)
         for u in meeting_found["participants"]:
             user = await get_user(u["user_id"])
-            meetings = []
             for i, invite in enumerate(user["meetings"]):
                 if invite["meeting_id"] == id:
                     invite.update(meeting_dict)
                     user["meetings"][i] = invite
                     break
-            user["meetings"] = meetings
             await users_collection.find_one_and_update(
                 {"_id": user["_id"]}, {"$set": user}
             )
