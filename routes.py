@@ -358,6 +358,7 @@ async def create_meeting(
     user_found = await get_user(user.id)
     meeting_dict = meeting.model_dump(by_alias=True, exclude={"id"})
     meeting_dict["admin_id"] = str(user_found["_id"])
+    meeting_dict["is_finished"] = False
     new_meeting = await meetings_collection.insert_one(meeting_dict)
     created_meeting = await meetings_collection.find_one(
         {"_id": new_meeting.inserted_id}
