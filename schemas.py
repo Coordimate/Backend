@@ -123,6 +123,7 @@ class MeetingDetails(BaseModel):
     id: str
     title: str
     start: str
+    is_finished: bool
     description: str
     group_id: str
     group_name: str
