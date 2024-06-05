@@ -12,6 +12,7 @@ from bson import ObjectId
 import models
 import schemas
 import firebase_admin
+import firebase_admin.auth as fauth
 
 import bcrypt
 import auth
@@ -57,6 +58,7 @@ time_slots_collection = db.get_collection("time_slots")
     response_model_by_alias=False,
 )
 async def login(user: schemas.LoginUserSchema = Body(...)):
+    print(user.model_dump(by_alias=True))
     if (
         user_found := await users_collection.find_one({"email": user.email})
     ) is not None:
@@ -79,6 +81,9 @@ async def login(user: schemas.LoginUserSchema = Body(...)):
                     status_code=400,
                     detail=f"No password specified, our Google/Facebook Auth got us",
                 )
+        elif user.auth_type == "google":
+            decoded_token = fauth.verify_id_token(user.google_id_token)
+            print("DECODED TOKEN", decoded_token)
         else:
             token = auth.generateToken(user_found)
             return token

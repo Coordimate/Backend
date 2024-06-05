@@ -49,6 +49,7 @@ class LoginUserSchema(BaseModel):
     email: EmailStr
     password: Optional[str] = None
     auth_type: Optional[str] = None
+    google_id_token: Optional[str] = None
 
 
 # ********** Time Slot Schema **********
