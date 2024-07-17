@@ -61,15 +61,13 @@ async def login(user: schemas.LoginUserSchema = Body(...)):
         user_found := await users_collection.find_one({"email": user.email})
     ) is not None:
         user_found["id"] = user_found.pop("_id")
-        if user.auth_type is None:
+        if user.auth_type == "email":
             if user_found.get("password") is None:
                 raise HTTPException(
                     status_code=409, detail=f"user regisered through external service"
                 )
             if user.password is not None:
-                if bcrypt.checkpw(
-                    user.password.encode("utf-8"), user_found["password"]
-                ):
+                if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
                     token = auth.generateToken(user_found)
                     return token
                 else:
@@ -142,7 +140,7 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
     existing_user = await users_collection.find_one({"email": user.email})
     if existing_user:
         raise HTTPException(status_code=409, detail="User already exists")
-    if user.auth_type is None:
+    if user.auth_type == "email":
         if user.password is not None:
             user.password = bcrypt.hashpw(
                 user.password.encode("utf-8"), bcrypt.gensalt()
