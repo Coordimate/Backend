@@ -458,6 +458,7 @@ async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
                 start=meeting["start"],
                 group=models.GroupCardModel(_id=group["_id"], name=group["name"]),
                 status=invite["status"],
+                is_finished=meeting["is_finished"],
             )
             meetings.append(meeting_tile)
 
@@ -1000,6 +1001,7 @@ async def list_group_meetings(
                 start=meeting_found["start"],
                 group=models.GroupCardModel(_id=group["_id"], name=group["name"]),
                 status=models.MeetingStatus.accepted,
+                is_finished=meeting_found["is_finished"],
             )
             response_meetings.append(meeting_tile)
 

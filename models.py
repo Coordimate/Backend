@@ -23,6 +23,7 @@ class MeetingTile(BaseModel):
     start: str
     group: "GroupCardModel"
     status: MeetingStatus
+    is_finished: bool = None
 
 
 class Participant(BaseModel):  # TODO: user_id as PyObjectId
