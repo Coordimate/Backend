@@ -1152,19 +1152,19 @@ async def create_upload_file(file: UploadFile, avatar_id: str):
         raise HTTPException(status_code=400, detail="Filename not set for upload file")
     file_extension = file.filename.split(".")[-1]
 
-    with open(f'avatars/{avatar_id}.{file_extension}', 'xb') as f:
+    with open(f'avatars/{avatar_id}.{file_extension}', 'wb') as f:
         f.write(avatar_bytes)
 
     await users_collection.find_one_and_update(
         {"_id": ObjectId(avatar_id)},
         {"$set": {
-            "avatar": file_extension
+            "avatar_extension": file_extension
         }}
     )
     await groups_collection.find_one_and_update(
         {"_id": ObjectId(avatar_id)},
         {"$set": {
-            "avatar": file_extension
+            "avatar_extension": file_extension
         }}
     )
     return {"ok": True}
