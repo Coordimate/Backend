@@ -1173,7 +1173,12 @@ async def create_upload_file(file: UploadFile, avatar_id: str):
 @app.get("/users/{user_id}/avatar")
 async def get_user_avatar(user_id: str):
     user = await get_user(user_id)
-    with open(f'avatars/{user_id}.{user["avatar"]}', 'rb') as f:
+    if not user["avatar_extension"]:
+        filepath = "avatars/default.jpg"
+    else:
+        filepath = f'avatars/{user_id}.{user["avatar_extension"]}'
+
+    with open(filepath, 'rb') as f:
         avatar_bytes = f.read()
     return Response(content=avatar_bytes, media_type="image/png")
 
@@ -1181,7 +1186,12 @@ async def get_user_avatar(user_id: str):
 @app.get("/groups/{group_id}/avatar")
 async def get_group_avatar(group_id: str):
     group = await get_group(group_id)
-    with open(f'avatars/{group_id}.{group["avatar"]}', 'rb') as f:
+    if not group["avatar_extension"]:
+        filepath = "avatars/default.jpg"
+    else:
+        filepath = f'avatars/{group_id}.{group["avatar_extension"]}'
+
+    with open(filepath, 'rb') as f:
         avatar_bytes = f.read()
     return Response(content=avatar_bytes, media_type="image/png")
 
