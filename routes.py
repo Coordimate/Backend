@@ -1,8 +1,10 @@
 import os
+import base64
 import datetime
+from pathlib import Path
 
 import motor.motor_asyncio
-from fastapi import FastAPI, HTTPException, Body, status, Depends
+from fastapi import FastAPI, HTTPException, Body, status, Depends, UploadFile
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import ReturnDocument  # , ObjectId
@@ -1137,4 +1139,49 @@ async def isoformat_to_timeslot(time_string: str):
     time_slot = models.TimeSlot(day=date.weekday(), start=date.hour, length=1, is_meeting=True).model_dump(by_alias=True, exclude={"id"})
     res = await time_slots_collection.insert_one(time_slot)
     return res.inserted_id
+
+
+@app.post("/upload_avatar/{avatar_id}")
+async def create_upload_file(file: UploadFile, avatar_id: str):
+    path = Path('avatars')
+    if not path.exists():
+        path.mkdir()
+
+    avatar_bytes = await file.read()
+    if file.filename is None:
+        raise HTTPException(status_code=400, detail="Filename not set for upload file")
+    file_extension = file.filename.split(".")[-1]
+
+    with open(f'avatars/{avatar_id}.{file_extension}', 'xb') as f:
+        f.write(avatar_bytes)
+
+    await users_collection.find_one_and_update(
+        {"_id": ObjectId(avatar_id)},
+        {"$set": {
+            "avatar": file_extension
+        }}
+    )
+    await groups_collection.find_one_and_update(
+        {"_id": ObjectId(avatar_id)},
+        {"$set": {
+            "avatar": file_extension
+        }}
+    )
+    return {"ok": True}
+
+
+@app.get("/users/{user_id}/avatar")
+async def get_user_avatar(user_id: str):
+    user = await get_user(user_id)
+    with open(f'avatars/{user_id}.{user["avatar"]}', 'rb') as f:
+        avatar_bytes = f.read()
+    return Response(content=avatar_bytes, media_type="image/png")
+
+
+@app.get("/groups/{group_id}/avatar")
+async def get_group_avatar(group_id: str):
+    group = await get_group(group_id)
+    with open(f'avatars/{group_id}.{group["avatar"]}', 'rb') as f:
+        avatar_bytes = f.read()
+    return Response(content=avatar_bytes, media_type="image/png")
 

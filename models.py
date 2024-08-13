@@ -107,6 +107,7 @@ class UserModel(BaseModel):
     password: Optional[str] = Field(...)  # because google users don't have passwords
     fcm_token: str = Field("no_token")
     email: EmailStr = Field(...)
+    avatar_extension: Optional[str] = Field(default=None)
     meetings: List[MeetingInvite] = Field(
         [], description="List of meetings the user is invited to"
     )
@@ -222,6 +223,7 @@ class GroupModel(BaseModel):
     admin: UserCardModel = Field(...)
     name: str = Field(...)
     description: str = Field(...)
+    avatar_extension: Optional[str] = Field(default=None)
     users: List[UserCardModel] = Field(
         [], description="List of users with access to the group"
     )
