@@ -1173,7 +1173,7 @@ async def create_upload_file(file: UploadFile, avatar_id: str):
 @app.get("/users/{user_id}/avatar")
 async def get_user_avatar(user_id: str):
     user = await get_user(user_id)
-    if not user["avatar_extension"]:
+    if "avatar_extension" not in user or not user["avatar_extension"]:
         filepath = "avatars/default.jpg"
     else:
         filepath = f'avatars/{user_id}.{user["avatar_extension"]}'
@@ -1186,8 +1186,8 @@ async def get_user_avatar(user_id: str):
 @app.get("/groups/{group_id}/avatar")
 async def get_group_avatar(group_id: str):
     group = await get_group(group_id)
-    if not group["avatar_extension"]:
-        filepath = "avatars/default.jpg"
+    if "avatar_extension" not in group or not group["avatar_extension"]:
+        filepath = "avatars/group.png"
     else:
         filepath = f'avatars/{group_id}.{group["avatar_extension"]}'
 
