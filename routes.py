@@ -1174,7 +1174,7 @@ async def create_upload_file(file: UploadFile, avatar_id: str):
 async def get_user_avatar(user_id: str):
     user = await get_user(user_id)
     if "avatar_extension" not in user or not user["avatar_extension"]:
-        filepath = "avatars/default.jpg"
+        filepath = "avatars/user.png"
     else:
         filepath = f'avatars/{user_id}.{user["avatar_extension"]}'
 
