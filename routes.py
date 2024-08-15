@@ -59,6 +59,12 @@ time_slots_collection = db.get_collection("time_slots")
     response_model_by_alias=False,
 )
 async def login(user: schemas.LoginUserSchema = Body(...)):
+    if (user.auth_type == 'google'):
+        if (user_found := await users_collection.find_one({"email": user.email})) is None:
+            new_user = await users_collection.insert_one({'username': user.email.split('@')[0], 'email': user.email})
+            user_found = await get_user(new_user.inserted_id)
+        token = auth.generateToken(schemas.AccountOut(id=str(user_found['_id']), email=user.email))
+        return token
     if (
         user_found := await users_collection.find_one({"email": user.email})
     ) is not None:
@@ -201,6 +207,8 @@ async def list_users():
 )
 async def show_user(id: str):
     user = await get_user(id)
+    if 'password' not in user:
+        user["password"] = ''
     return user
 
 

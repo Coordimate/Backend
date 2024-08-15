@@ -52,7 +52,7 @@ class JWTBearer(HTTPBearer):
             raise HTTPException(status_code=403, detail="Invalid authorization code.")
 
 
-def createToken(id: int, valid_time: int, is_access_token: bool):
+def createToken(id: str, valid_time: int, is_access_token: bool):
     payload = {
         "id": id,
         "is_access_token": is_access_token,
@@ -78,12 +78,12 @@ def decodeJWT(token: str) -> Type[schemas.AuthSchema] | None:
 def generateToken(account: schemas.AccountOut):
     reponse = schemas.TokenSchema
     reponse.access_token = createToken(
-        id=str(account["id"]),
+        id=str(account.id),
         valid_time=JWT_VALID_TIME_ACCESS,
         is_access_token=True,
     )
     reponse.refresh_token = createToken(
-        id=str(account["id"]),
+        id=str(account.id),
         valid_time=JWT_VALID_TIME_REFRESH,
         is_access_token=False,
     )
