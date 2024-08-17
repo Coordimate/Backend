@@ -78,6 +78,7 @@ class MeetingModel(BaseModel):
             "description": "This is the first group meeting.",
         },
     )
+    meeting_link: Optional[str] = Field(None, description="Online meeting room link")
 
 
 class TimeSlot(BaseModel):

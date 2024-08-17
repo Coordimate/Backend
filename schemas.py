@@ -88,6 +88,7 @@ class CreateMeeting(BaseModel):
     title: str
     start: str
     description: Optional[str] = None
+    meeting_link: Optional[str] = None
 
 
 class UpdateMeeting(BaseModel):
@@ -130,6 +131,7 @@ class MeetingDetails(BaseModel):
     group_name: str
     admin: ParticipantSchema
     participants: List[ParticipantSchema]
+    meeting_link: Optional[str]
     status: str
 
 
