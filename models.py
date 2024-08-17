@@ -21,9 +21,10 @@ class MeetingTile(BaseModel):
     id: str
     title: str
     start: str
+    length: int  # Length of the meeting in minutes
     group: "GroupCardModel"
     status: MeetingStatus
-    is_finished: bool = None
+    is_finished: Optional[bool] = None
 
 
 class Participant(BaseModel):  # TODO: user_id as PyObjectId
@@ -46,6 +47,7 @@ class MeetingCardModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     title: str = Field(...)
     start: str = Field(...)
+    length: int = Field(...)
 
 
 class MeetingModel(BaseModel):
@@ -59,6 +61,7 @@ class MeetingModel(BaseModel):
     is_finished: bool = Field(False, description="Marks the meeting as compeleted")
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
+    length: int = Field(default=60, description="Length of the meeting in minutes")
     description: Optional[str] = Field(None, description="Description of the meeting")
     summary: Optional[str] = Field("", description="Summary of a finished meeting")
     participants: List[Participant] = Field(

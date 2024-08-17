@@ -87,6 +87,7 @@ class CreateMeeting(BaseModel):
     group_id: str
     title: str
     start: str
+    length: Optional[int] = 60
     description: Optional[str] = None
     meeting_link: Optional[str] = None
 
@@ -97,6 +98,7 @@ class UpdateMeeting(BaseModel):
     is_finished: Optional[bool] = None
     title: Optional[str] = None
     start: Optional[str] = None
+    length: Optional[int] = None
     description: Optional[str] = None
     summary: Optional[str] = None
 
@@ -124,6 +126,7 @@ class MeetingDetails(BaseModel):
     id: str
     title: str
     start: str
+    length: int
     is_finished: bool
     description: str
     summary: str

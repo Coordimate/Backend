@@ -466,6 +466,7 @@ async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
                 id=str(meeting["_id"]),
                 title=meeting["title"],
                 start=meeting["start"],
+                length=meeting["length"],
                 group=models.GroupCardModel(_id=group["_id"], name=group["name"]),
                 status=invite["status"],
                 is_finished=meeting["is_finished"],
@@ -539,6 +540,7 @@ async def show_meeting_details(
                 id=str(meeting["_id"]),
                 title=meeting["title"],
                 start=meeting["start"],
+                length=meeting["length"],
                 summary=meeting.get("summary", ""),
                 is_finished=meeting.get("is_finished", False),
                 group_id=str(group["_id"]),
@@ -1010,6 +1012,7 @@ async def list_group_meetings(
                 id=str(meeting["_id"]),
                 title=meeting_found["title"],
                 start=meeting_found["start"],
+                length=meeting["length"],
                 group=models.GroupCardModel(_id=group["_id"], name=group["name"]),
                 status=models.MeetingStatus.accepted,
                 is_finished=meeting_found["is_finished"],
@@ -1096,7 +1099,7 @@ def get_group_card(group):
 
 def get_meeting_card(meeting):
     return models.MeetingCardModel(
-        _id=str(meeting["_id"]), title=meeting["title"], start=meeting["start"]
+        _id=str(meeting["_id"]), title=meeting["title"], start=meeting["start"], length=meeting["length"]
     ).model_dump(by_alias=True)
 
 
