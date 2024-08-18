@@ -26,7 +26,6 @@ class GroupsScheduleManager:
     def _to_internal_representation(
         self, time_slots: list[dict], group_schedule=False
     ) -> Schedule:
-        print("TIME_SLOTS", time_slots)
         if group_schedule:
             self.group_meetings = [
                 ts

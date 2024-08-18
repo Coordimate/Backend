@@ -375,7 +375,8 @@ async def create_meeting(
     if "meetings" not in group:
         group["meetings"] = []
     group["meetings"].append(get_meeting_card(created_meeting))
-    group["schedule"].append(await isoformat_to_timeslot(meeting.start))
+    length = meeting.length if meeting.length is not None else 60
+    group["schedule"].append(await isoformat_to_timeslot(meeting.start, length))
     await groups_collection.find_one_and_update({"_id": group["_id"]}, {"$set": group})
 
     created_meeting["participants"] = []
@@ -1147,9 +1148,9 @@ def check_status(status: str) -> bool:
     return True
 
 
-async def isoformat_to_timeslot(time_string: str):
+async def isoformat_to_timeslot(time_string: str, length: int):
     date = datetime.datetime.fromisoformat(time_string)
-    time_slot = models.TimeSlot(day=date.weekday(), start=date.hour, length=1, is_meeting=True).model_dump(by_alias=True, exclude={"id"})
+    time_slot = models.TimeSlot(day=date.weekday(), start=time_string, length=length, is_meeting=True).model_dump(by_alias=True, exclude={"id"})
     res = await time_slots_collection.insert_one(time_slot)
     return res.inserted_id
 
