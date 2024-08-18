@@ -87,8 +87,8 @@ class MeetingModel(BaseModel):
 class TimeSlot(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     day: int = Field(...)
-    start: float = Field(...)
-    length: float = Field(...)
+    start: str = Field(..., description="Start date and time of the timeSlot" )
+    length: int = Field(..., description="Duration of the timeSlot in minutes")
     is_meeting: bool = Field(False)
 
 

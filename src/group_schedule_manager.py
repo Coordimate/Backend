@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Tuple, NewType
 
 
@@ -37,17 +38,29 @@ class GroupsScheduleManager:
             for ts in time_slots
             if ("is_meeting" not in ts or ts["is_meeting"] == False)
         ]
-        return [
-            (ts["day"], ts["start"], ts["length"])
-            for ts in time_slots
-            if ("is_meeting" not in ts or ts["is_meeting"] == False)
-        ]
+
+        ir = []
+        for ts in time_slots:
+            if "is_meeting" not in ts or ts["is_meeting"] == False:
+                ir.append((
+                    ts["day"],
+                    datetime.datetime.fromisoformat(ts["start"]).hour,
+                    ts["length"] / 60
+                ))
+        return ir
 
     def _from_internal_representation(self, time_slots: Schedule) -> list[dict]:
-        group_schedule = [
-            {"_id": str(i), "day": d, "start": s, "length": l, "is_meeting": False}
-            for (i, (d, s, l)) in enumerate(time_slots)
-        ]
+        group_schedule = []
+        now = datetime.datetime.now()
+        for (i, (d, s, l)) in enumerate(time_slots):
+            dt_str = datetime.datetime(now.year, now.month, now.day, int(s), int(60*(s % 1)), tzinfo=datetime.UTC)
+            group_schedule.append({
+                "_id": str(i),
+                "day": d,
+                "start": str(dt_str),
+                "length": 60*l,
+                "is_meeting": False
+            })
         l = len(group_schedule)
         for i in range(len(self.group_meetings)):
             meeting = self.group_meetings[i]
