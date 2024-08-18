@@ -1,7 +1,7 @@
 import os
-import base64
 import datetime
 from pathlib import Path
+from typing import Any
 
 import motor.motor_asyncio
 from fastapi import FastAPI, HTTPException, Body, status, Depends, UploadFile
@@ -76,7 +76,7 @@ async def login(user: schemas.LoginUserSchema = Body(...)):
                 )
             if user.password is not None:
                 if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
-                    token = auth.generateToken(user_found)
+                    token = auth.generateToken(schemas.AccountOut(id=str(user_found['id']), email=user.email))
                     return token
                 else:
                     raise HTTPException(status_code=400, detail=f"password incorrect")
@@ -86,7 +86,7 @@ async def login(user: schemas.LoginUserSchema = Body(...)):
                     detail=f"No password specified, our Google/Facebook Auth got us",
                 )
         else:
-            token = auth.generateToken(user_found)
+            token = auth.generateToken(schemas.AccountOut(id=str(user_found['id']), email=user.email))
             return token
 
     raise HTTPException(status_code=404, detail=f"user {user.email} not found")
@@ -472,6 +472,7 @@ async def list_user_meetings(user: schemas.AuthSchema = Depends(JWTBearer())):
                 is_finished=meeting["is_finished"],
             )
             meetings.append(meeting_tile)
+            await try_finish_meeting(meeting)
 
     return schemas.MeetingTileCollection(meetings=meetings)
 
@@ -1151,6 +1152,29 @@ async def isoformat_to_timeslot(time_string: str):
     time_slot = models.TimeSlot(day=date.weekday(), start=date.hour, length=1, is_meeting=True).model_dump(by_alias=True, exclude={"id"})
     res = await time_slots_collection.insert_one(time_slot)
     return res.inserted_id
+
+
+async def try_finish_meeting(meeting: Any):
+    """ Checks if the meeting is not yet marked as finished, but already passed.
+        Declines invitations for users who didn't accept. Marks the meeting as finished.
+    """
+    if meeting is None or meeting["is_finished"]:
+        return
+
+    now = datetime.datetime.now(datetime.UTC)
+    meeting_time = datetime.datetime.fromisoformat(meeting["start"])
+    if meeting_time + datetime.timedelta(minutes=meeting["length"]) < now:
+        await meetings_collection.find_one_and_update(
+            {"_id": meeting["_id"]},
+            {"$set": {"is_finished": True}},
+            return_document=ReturnDocument.AFTER
+        )
+
+    for participant in meeting["participants"]:
+        if participant["status"] != models.MeetingStatus.needs_acceptance.value:
+            continue
+        await meeting_in_user(participant["user_id"], meeting["_id"], models.MeetingStatus.declined.value)
+        await participant_in_meeting(participant["user_id"], meeting["_id"], models.MeetingStatus.declined.value)
 
 
 @app.post("/upload_avatar/{avatar_id}")
