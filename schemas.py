@@ -136,6 +136,7 @@ class MeetingDetails(BaseModel):
     admin: ParticipantSchema
     participants: List[ParticipantSchema]
     meeting_link: Optional[str]
+    google_event_id: Optional[str]
     status: str
 
 

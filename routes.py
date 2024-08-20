@@ -551,6 +551,7 @@ async def show_meeting_details(
                 description=meeting["description"],
                 participants=participants,
                 meeting_link=meeting.get("meeting_link", None),
+                google_event_id=meeting.get("google_event_id", None),
                 status=invite["status"],
             )
             return meeting_tile
