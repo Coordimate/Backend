@@ -81,6 +81,7 @@ class MeetingModel(BaseModel):
             "description": "This is the first group meeting.",
         },
     )
+    google_event_id: Optional[str] = Field(None, description="Google Calendar Event Id")
     meeting_link: Optional[str] = Field(None, description="Online meeting room link")
 
 

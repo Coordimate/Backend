@@ -90,6 +90,7 @@ class CreateMeeting(BaseModel):
     length: Optional[int] = 60
     description: Optional[str] = None
     meeting_link: Optional[str] = None
+    google_event_id: Optional[str] = None
 
 
 class UpdateMeeting(BaseModel):
