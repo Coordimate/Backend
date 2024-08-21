@@ -1008,7 +1008,8 @@ async def group_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
 
     group_schedule = [
         time_slot for time_slot in group_schedule
-        if datetime.datetime.fromisoformat(time_slot.start) >= datetime.datetime.now(datetime.UTC)
+        if (not time_slot.is_meeting
+            or datetime.datetime.fromisoformat(time_slot.start) >= datetime.datetime.now(datetime.UTC))
     ]
     return schemas.TimeSlotCollection(time_slots=group_schedule)
 
