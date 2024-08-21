@@ -234,6 +234,8 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
         else:
             raise HTTPException(status_code=404, detail=f"user {id} not found")
     existing_user = await get_user(id)
+    if "password" not in existing_user:
+        existing_user["password"] = ""
     return existing_user
 
 
@@ -710,6 +712,20 @@ async def delete_meeting(id: str):
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     raise HTTPException(status_code=404, detail=f"meeting {id} not found")
+
+
+@app.post("/meetings/{id}/suggest_location", response_description="Suggestion offline location for a meeting")
+async def suggest_meeting_location(id: str):
+    locations = []
+    meeting = await get_meeting(id)
+
+    for u in meeting["participants"]:
+        user = await get_user(u["user_id"])
+        if "last_location" in user:
+            lat, lon = map(float, user["last_location"].split(","))
+            locations.append((lat, lon))
+    point = ','.join(map(str, [sum(x)/len(x) for x in zip(*locations)]))
+    return {"link": f"https://www.google.com/maps/search/cafe/@{point},16z"}
 
 
 # ********* Agenda Points ********

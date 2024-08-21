@@ -109,7 +109,7 @@ class UserCardModel(BaseModel):
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
-    password: Optional[str] = Field(...)  # because google users don't have passwords
+    password: Optional[str] = Field(default=None)  # because google users don't have passwords
     fcm_token: str = Field("no_token")
     email: EmailStr = Field(...)
     avatar_extension: Optional[str] = Field(default=None)
@@ -122,6 +122,7 @@ class UserModel(BaseModel):
     groups: List["GroupCardModel"] = Field(
         [], description="List of groups the user belongs to"
     )
+    last_location: Optional[str] = Field(default=None, description="Last location of the user")
     # schedule_link: str = Field(...)
     # allow_location_link: bool = Field(...)
     # model_config = ConfigDict(
@@ -171,6 +172,7 @@ class UpdateUserModel(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    last_location: Optional[str] = None
     # model_config = ConfigDict(
     #     arbitrary_types_allowed=True,
     #     json_encoders={ObjectId: str},
