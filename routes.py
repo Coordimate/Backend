@@ -1005,6 +1005,11 @@ async def group_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
 
     gsm = GroupsScheduleManager([schedule], schedule)
     group_schedule = [models.TimeSlot(**params) for params in gsm.compute_group_schedule()]
+
+    group_schedule = [
+        time_slot for time_slot in group_schedule
+        if datetime.datetime.fromisoformat(time_slot.start) >= datetime.datetime.now(datetime.UTC)
+    ]
     return schemas.TimeSlotCollection(time_slots=group_schedule)
 
 
