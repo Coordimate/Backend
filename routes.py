@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import motor.motor_asyncio
-from fastapi import FastAPI, HTTPException, Body, status, Depends, UploadFile
+from fastapi import FastAPI, HTTPException, Body, status, Depends, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import ReturnDocument  # , ObjectId
@@ -20,11 +20,13 @@ import auth
 from auth import JWTBearer
 from firebase_utils import notify_single_user
 from src.group_schedule_manager import GroupsScheduleManager
+from ws_manager import ConnectionManager
 
 
 load_dotenv()
 
 
+manager = ConnectionManager()
 credentials = firebase_admin.credentials.Certificate(
     os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 )
@@ -1255,3 +1257,13 @@ async def get_group_avatar(group_id: str):
         avatar_bytes = f.read()
     return Response(content=avatar_bytes, media_type="image/png")
 
+
+@app.websocket("/websocket/{group_id}/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, group_id: str, user_id: str):
+    await manager.connect(group_id, user_id, websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(group_id, data)
+    except WebSocketDisconnect:
+        manager.disconnect(group_id, user_id)

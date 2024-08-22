@@ -240,6 +240,7 @@ class GroupModel(BaseModel):
     schedule: List[PyObjectId] = Field(
         [], description="List of busy time slots in the group's schedule"
     )
+    chat_messages: str = Field(default='[]')
 
 
 class GroupCollection(BaseModel):
