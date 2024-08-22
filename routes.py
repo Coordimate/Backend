@@ -726,6 +726,8 @@ async def suggest_meeting_location(id: str):
         if "last_location" in user:
             lat, lon = map(float, user["last_location"].split(","))
             locations.append((lat, lon))
+    if len(locations) == 0:
+        raise HTTPException(status_code=404, detail=f"No user locations available to pick a meeting spot")
     point = ','.join(map(str, [sum(x)/len(x) for x in zip(*locations)]))
     return {"link": f"https://www.google.com/maps/search/cafe/@{point},16z"}
 
