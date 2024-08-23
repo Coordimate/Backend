@@ -841,6 +841,7 @@ async def create_group(
     group_dict["admin"] = user_card
     group_dict["users"] = [user_card]
     group_dict["schedule"] = user_found.get("schedule", [])
+    group_dict["chat_messages"] = "[]"
 
     new_group = await groups_collection.insert_one(group_dict)
     created_group = await groups_collection.find_one({"_id": new_group.inserted_id})
