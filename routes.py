@@ -948,6 +948,14 @@ async def delete_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer()))
     raise HTTPException(status_code=404, detail=f"group {id} not found")
 
 
+@app.delete("/groups/{id}/poll", response_description="Delete a group poll")
+async def delete_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
+    _ = await get_user(user.id)
+    _ = await get_group(id)
+    await groups_collection.find_one_and_update({"_id": ObjectId(id)}, {"$set": {"poll": None}})
+    return "ok"
+
+
 @app.get(
     "/groups/{id}/invite",
     response_description="Get a link to invite user to a group",

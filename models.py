@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Any, Optional, List
 from typing_extensions import Annotated
 
 from pydantic import ConfigDict, BaseModel, Field, EmailStr
@@ -225,6 +225,12 @@ class GroupCardModel(BaseModel):
     name: str = Field(...)
 
 
+class GroupPoll(BaseModel):
+    question: str = Field(...)
+    options: List[str] = Field(default=[])
+    votes: Optional[Any] = Field(default=None)
+
+
 class GroupModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     admin: UserCardModel = Field(...)
@@ -241,6 +247,7 @@ class GroupModel(BaseModel):
         [], description="List of busy time slots in the group's schedule"
     )
     chat_messages: str = Field(default='[]')
+    poll: Optional[GroupPoll] = Field(default=None)
 
 
 class GroupCollection(BaseModel):
@@ -250,3 +257,5 @@ class GroupCollection(BaseModel):
 class UpdateGroupModel(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    poll: Optional[GroupPoll] = Field(default=None)
+
