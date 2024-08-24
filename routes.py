@@ -949,10 +949,32 @@ async def delete_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer()))
 
 
 @app.delete("/groups/{id}/poll", response_description="Delete a group poll")
-async def delete_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
+async def delete_poll(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
     _ = await get_user(user.id)
     _ = await get_group(id)
     await groups_collection.find_one_and_update({"_id": ObjectId(id)}, {"$set": {"poll": None}})
+    return "ok"
+
+
+@app.post("/groups/{id}/poll/{option_index}", response_description="Vote on a group poll")
+async def vote_on_poll(id: str, option_index: str, user: schemas.AuthSchema = Depends(JWTBearer())):
+    _ = await get_user(user.id)
+    group_found = await get_group(id)
+
+    poll = group_found["poll"]
+    if "votes" not in poll or poll["votes"] is None:
+        poll["votes"] = {str(i): [] for i in range(len(poll["options"]))}
+
+    for opt in poll["votes"]:
+        if user.id in poll["votes"][opt]:
+            poll["votes"][opt].remove(user.id)
+    poll["votes"][option_index].append(user.id)
+
+    await groups_collection.find_one_and_update({"_id": ObjectId(id)}, {
+        "$set": {
+            "poll": poll
+        }
+    })
     return "ok"
 
 
