@@ -3,7 +3,7 @@ import datetime
 from firebase_admin import messaging
 
 
-def notify_single_user(fcm_token, title, body):
+def notify_single_user(fcm_token, title, body, link=""):
     message = messaging.Message(
         notification=messaging.Notification(
             title=title,
@@ -13,7 +13,7 @@ def notify_single_user(fcm_token, title, body):
             ttl=datetime.timedelta(seconds=3600),
             priority="normal",
             notification=messaging.AndroidNotification(
-                icon="stock_ticker_update", color="#3d5a80"
+                icon="stock_ticker_update", color="#3d5a80", click_action=link
             ),
         ),
         apns=messaging.APNSConfig(

@@ -106,6 +106,14 @@ class UserCardModel(BaseModel):
     username: str = Field(...)
 
 
+class RandomCoffee(BaseModel):
+    is_enabled: bool = Field(default=False)
+    start_time: Optional[str] = Field(..., description="Start of the open to participation interval of the user")
+    end_time: Optional[str] = Field(..., description="End of the open to participation interval of the user")
+    timezone: Optional[str] = Field(..., description="TimeZone offset of the user in minutes")
+    last_invite_time: Optional[str] = Field(default=None, description="UTC string with datetime of the last invitation the user received")
+
+
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str = Field(...)
@@ -123,49 +131,7 @@ class UserModel(BaseModel):
         [], description="List of groups the user belongs to"
     )
     last_location: Optional[str] = Field(default=None, description="Last location of the user")
-    # schedule_link: str = Field(...)
-    # allow_location_link: bool = Field(...)
-    # model_config = ConfigDict(
-    #     arbitrary_types_allowed=True,
-    #     json_encoders={ObjectId: str},
-    #     json_schema_extra={
-    #         "username": "casual_meeter",
-    #         "email": "meeter@gmail.com",
-    #         "password": "iLikeMeetingUp",
-    #         "schedule_link": "https://coordimate.com/schedules/john_doe",
-    #         "allow_location_access": False,
-    #         "groups": [
-    #             {
-    #                 "name": "kittens",
-    #                 "notify_chat": True,
-    #                 "notify_polls": True,
-    #                 "notify_meetings": True,
-    #                 "notify_changes": True,
-    #                 "is_admin": False,
-    #             }
-    #         ],
-    #         "external_calendars": [
-    #             {
-    #                 "name": "my uni calendar",
-    #                 "type": "Outlook",
-    #                 "link": "https://outlook.office365.com/owa/calendar/blah-blah",
-    #             }
-    #         ],
-    #         "meetings": [
-    #             {"name": "first group meeting", "accepted": False, "refused": False}
-    #         ],
-    #         "meeting_constraints": [
-    #             {
-    #                 "type": "before_time",
-    #                 "hours": "18",
-    #                 "minutes": "00",
-    #                 "timezone": "UTC+3",
-    #             },
-    #             {"type": "not_on_weekends", "value": True},
-    #         ],
-    #         "schedule": [{"is_meeting": False, "day": 1, "start": 9.0, "length": 2.5}],
-    #     },
-    # )
+    random_coffee: Optional[RandomCoffee] = Field(default=None)
 
 
 class UpdateUserModel(BaseModel):
@@ -173,47 +139,7 @@ class UpdateUserModel(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     last_location: Optional[str] = None
-    # model_config = ConfigDict(
-    #     arbitrary_types_allowed=True,
-    #     json_encoders={ObjectId: str},
-    #     json_schema_extra={
-    #         "username": "casual_meeter",
-    #         "email": "meeter@gmail.com",
-    #         "password": "iLikeMeetingUp",
-    #         "schedule_link": "https://coordimate.com/schedules/john_doe",
-    #         "allow_location_access": False,
-    #         "groups": [
-    #             {
-    #                 "name": "kittens",
-    #                 "notify_chat": True,
-    #                 "notify_polls": True,
-    #                 "notify_meetings": True,
-    #                 "notify_changes": True,
-    #                 "is_admin": False,
-    #             }
-    #         ],
-    #         "external_calendars": [
-    #             {
-    #                 "name": "my uni calendar",
-    #                 "type": "Outlook",
-    #                 "link": "https://outlook.office365.com/owa/calendar/blah-blah",
-    #             }
-    #         ],
-    #         "meetings": [
-    #             {"name": "first group meeting", "accepted": False, "refused": False}
-    #         ],
-    #         "meeting_constraints": [
-    #             {
-    #                 "type": "before_time",
-    #                 "hours": "18",
-    #                 "minutes": "00",
-    #                 "timezone": "UTC+3",
-    #             },
-    #             {"type": "not_on_weekends", "value": True},
-    #         ],
-    #         "schedule": [{"is_meeting": False, "day": 1, "start": 9.0, "length": 2.5}],
-    #     },
-    # )
+    random_coffee: Optional[RandomCoffee] = None
 
 
 class UserCollection(BaseModel):

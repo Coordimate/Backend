@@ -1,4 +1,5 @@
 import os
+import random
 import datetime
 from pathlib import Path
 from typing import Any
@@ -89,6 +90,7 @@ async def login(user: schemas.LoginUserSchema = Body(...)):
                 )
         else:
             token = auth.generateToken(schemas.AccountOut(id=str(user_found['id']), email=user.email))
+            await random_coffee(user_found["id"])
             return token
 
     raise HTTPException(status_code=404, detail=f"user {user.email} not found")
@@ -224,6 +226,8 @@ async def update_user(id: str, user: models.UpdateUserModel = Body(...)):
     user_dict = {
         k: v for k, v in user.model_dump(by_alias=True).items() if v is not None
     }
+    if user.random_coffee == {}:
+        user_dict['random_coffee'] = None
 
     if len(user_dict) >= 1:
         update_result = await users_collection.find_one_and_update(
@@ -1300,3 +1304,147 @@ async def websocket_endpoint(websocket: WebSocket, group_id: str, user_id: str):
             await manager.broadcast(group_id, data)
     except WebSocketDisconnect:
         manager.disconnect(group_id, user_id)
+
+
+async def create_random_coffee_meeting(user_id: str, mate_id: str, group_id: str, title: str, start: str, length: int):
+    user_found = await get_user(user_id)
+
+    meeting_dict = schemas.CreateMeeting(
+        group_id=group_id,
+        title=title,
+        description="This event was automatically generated",
+        start=start,
+        length=length,
+    ).model_dump(by_alias=True, exclude={"id"})
+    meeting_dict["admin_id"] = str(user_found["_id"])
+    meeting_dict["is_finished"] = False
+    new_meeting = await meetings_collection.insert_one(meeting_dict)
+    created_meeting = await meetings_collection.find_one(
+        {"_id": new_meeting.inserted_id}
+    )
+    if created_meeting is None:
+        raise HTTPException(status_code=500, detail="Error creating a meeting")
+
+    created_meeting["participants"] = []
+    for _id in [user_id, mate_id]:
+        user_found = await get_user(_id)
+        if user_found.get("meetings") is None:
+            user_found["meetings"] = []
+        user_found["meetings"].append(
+            {
+                "meeting_id": str(created_meeting["_id"]),
+                "status": models.MeetingStatus.needs_acceptance.value,
+            }
+        )
+        await users_collection.update_one(
+            {"_id": user_found["_id"]}, {"$set": {"meetings": user_found["meetings"]}}
+        )
+
+        created_meeting["participants"].append(
+            {
+                "user_id": str(user_found["_id"]),
+                "username": user_found["username"],
+                "status": models.MeetingStatus.needs_acceptance.value,
+            }
+        )
+        # notify_single_user(
+        #     user_found["fcm_token"],
+        #     "Meeting Invitation",
+        #     f"Join the meeting {created_meeting['title']} with group {group['name']}, time: {created_meeting['start']}",
+        # )
+
+    await meetings_collection.update_one(
+        {"_id": created_meeting["_id"]},
+        {"$set": {"participants": created_meeting["participants"]}},
+    )
+    return created_meeting
+
+
+async def random_coffee(user_id: str):
+    INVITE_COOLDOWN_DAYS = 3
+
+    user_found = await get_user(user_id)
+    if not user_found.get('random_coffee') or not user_found['random_coffee']['is_enabled']:
+        print(f"Random coffee disabled for user {user_id}")
+        return
+
+    if user_found['random_coffee'].get('last_invite_time'):
+        last_invite_time = datetime.datetime.fromisoformat(user_found['random_coffee']['last_invite_time'])
+        now = datetime.datetime.now(datetime.UTC)
+        if (now - last_invite_time).days < INVITE_COOLDOWN_DAYS:
+            print(f"Invite cooldown not passed for user {user_id}")
+            return
+
+    h, m = map(int, user_found['random_coffee']['start_time'].split(':'))
+    # Add a whole day in minutes to support negative timezone offsets
+    user_start = 60*h+m + 24*60 + int(user_found['random_coffee']['timezone'])
+    h, m = map(int, user_found['random_coffee']['end_time'].split(':'))
+    user_end = 60*h+m + 24*60 + int(user_found['random_coffee']['timezone'])
+
+    mates = []
+    mate_groups = []
+    mate_intervals = []
+
+    for group in user_found["groups"]:
+        group_found = await get_group(group["_id"])
+        mate_cards = [user for user in group_found["users"] if (user['username'] != user_found['username'])]
+
+        for mate_card in mate_cards:
+            mate = await get_user(mate_card["_id"])
+            if not mate.get('random_coffee') or not mate['random_coffee']['is_enabled']:
+                continue
+
+            h, m = map(int, mate['random_coffee']['start_time'].split(':'))
+            mate_start = 60*h+m + 24*60 + int(mate['random_coffee']['timezone'])
+            h, m = map(int, mate['random_coffee']['end_time'].split(':'))
+            mate_end = 60*h+m + 24*60 + int(mate['random_coffee']['timezone'])
+
+            if (mate_start < user_start < mate_end):
+                mates.append(mate)
+                mate_groups.append(group)
+                mate_intervals.append((user_start - 24*60, min(mate_end, user_end) - user_start))
+            elif (mate_start < user_end < mate_end):
+                mates.append(mate)
+                mate_groups.append(group)
+                mate_intervals.append((mate_start - 24*60, user_end - max(mate_start, user_start)))
+
+    if not mates:
+        print(f"No possible matches for user {user_id}")
+        return
+
+    index = random.randint(0, len(mates) - 1)
+    random_mate = mates[index]
+
+    start, length = mate_intervals[index]
+    now = datetime.datetime.now()
+    start_date = datetime.datetime(now.year, now.month, now.day + 2, start // 60, start % 60, tzinfo=datetime.UTC)
+    meeting = await create_random_coffee_meeting(
+        user_id,
+        random_mate["_id"],
+        mate_groups[index]["_id"],
+        "RandomCoffee event",
+        start_date.isoformat(),
+        length
+    )
+
+    # notify_single_user( user_found['fcm_token'],
+    #     'RandomCoffee event!',
+    #     f"You matched with {random_mate['username']}",
+    #     link=f"coordimate://coordimate.com/meetings/{meeting['_id']}/join"
+    # )
+    # notify_single_user(
+    #     random_mate['fcm_token'],
+    #     'RandomCoffee event!',
+    #     f"You matched with {user_found['username']}",
+    #     link=f"coordimate://coordimate.com/meetings/{meeting['_id']}/join"
+    # )
+
+    await users_collection.find_one_and_update(
+        {"_id": user_found["_id"]},
+        {
+            "$set": {
+                "random_coffee.last_invite_time": datetime.datetime.now(datetime.UTC).isoformat() 
+            }
+        }
+    )
+
