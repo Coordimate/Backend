@@ -1394,6 +1394,12 @@ async def random_coffee(user_id: str):
             if not mate.get('random_coffee') or not mate['random_coffee']['is_enabled']:
                 continue
 
+            if mate['random_coffee'].get('last_invite_time'):
+                last_invite_time = datetime.datetime.fromisoformat(user_found['random_coffee']['last_invite_time'])
+                now = datetime.datetime.now(datetime.UTC)
+                if (now - last_invite_time).days < INVITE_COOLDOWN_DAYS:
+                    continue
+
             h, m = map(int, mate['random_coffee']['start_time'].split(':'))
             mate_start = 60*h+m + 24*60 + int(mate['random_coffee']['timezone'])
             h, m = map(int, mate['random_coffee']['end_time'].split(':'))
