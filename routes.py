@@ -1229,11 +1229,11 @@ async def try_finish_meeting(meeting: Any):
             return_document=ReturnDocument.AFTER
         )
 
-    for participant in meeting["participants"]:
-        if participant["status"] != models.MeetingStatus.needs_acceptance.value:
-            continue
-        await meeting_in_user(participant["user_id"], meeting["_id"], models.MeetingStatus.declined.value)
-        await participant_in_meeting(participant["user_id"], meeting["_id"], models.MeetingStatus.declined.value)
+        for participant in meeting["participants"]:
+            if participant["status"] != models.MeetingStatus.needs_acceptance.value:
+                continue
+            await meeting_in_user(participant["user_id"], meeting["_id"], models.MeetingStatus.declined.value)
+            await participant_in_meeting(participant["user_id"], meeting["_id"], models.MeetingStatus.declined.value)
 
 
 @app.post("/upload_avatar/{avatar_id}")
