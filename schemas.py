@@ -68,8 +68,8 @@ class CreateTimeSlot(BaseModel):
 class UpdateTimeSlot(BaseModel):
     is_meeting: Optional[bool] = False
     day: Optional[int] = None
-    start: Optional[float] = None
-    length: Optional[float] = None
+    start: Optional[str] = None
+    length: Optional[int] = None
 
 
 class ShareScheduleResponse(BaseModel):
