@@ -174,6 +174,7 @@ class GroupModel(BaseModel):
     )
     chat_messages: str = Field(default='[]')
     poll: Optional[GroupPoll] = Field(default=None)
+    meeting_link: Optional[str] = Field(default=None)
 
 
 class GroupCollection(BaseModel):
@@ -183,5 +184,6 @@ class GroupCollection(BaseModel):
 class UpdateGroupModel(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    poll: Optional[GroupPoll] = Field(default=None)
+    poll: Optional[GroupPoll] = None
+    meeting_link: Optional[str] = None
 
