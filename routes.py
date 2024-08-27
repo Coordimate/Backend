@@ -934,9 +934,19 @@ async def delete_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer()))
     group = await get_group(id)
 
     if "meetings" in group:
-        meetings_ids_to_delete = [ObjectId(m["_id"]) for m in group["meetings"]]
-        # TODO: when deleting a meeting it should be removed from all users (invitations)
-        await meetings_collection.delete_many({"_id": {"$in": meetings_ids_to_delete}})
+        meeting_ids_to_delete = [m["_id"] for m in await meetings_collection.find({"group_id": id}, {"_id"}).to_list(1000)]
+        await meetings_collection.delete_many({"_id": {"$in": meeting_ids_to_delete}})
+
+        meeting_ids_to_delete = set(meeting_ids_to_delete)
+        for u in group["users"]:
+            found_user = await get_user(u["_id"])
+            new_meetings = []
+            for invite in found_user["meetings"]:
+                if ObjectId(invite["meeting_id"]) in meeting_ids_to_delete:
+                    continue
+                new_meetings.append(invite)
+            found_user["meetings"] = new_meetings
+            await users_collection.find_one_and_update({"_id": found_user["_id"]}, {"$set": found_user})
 
     user_ids_to_cleanup = [ObjectId(u["_id"]) for u in group["users"]]
     for user_id in user_ids_to_cleanup:
