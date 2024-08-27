@@ -102,6 +102,7 @@ class UpdateMeeting(BaseModel):
     length: Optional[int] = None
     description: Optional[str] = None
     summary: Optional[str] = None
+    meeting_link: Optional[str] = None
 
 
 class UpdateMeetingStatus(BaseModel):
