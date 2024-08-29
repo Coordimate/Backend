@@ -995,14 +995,6 @@ async def leave_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
             if user.id in poll["votes"][opt]:
                 poll["votes"][opt].remove(user.id)
 
-    # schedule = []
-    # for user_card in group_found['users']:
-    #     schedule += await time_slots_collection.find({"_id": {"$in": (await get_user(user_card['_id'])).get("schedule", [])}}).to_list(1000)
-    # for i in range(len(schedule)):
-    #     schedule[i]["_id"] = str(schedule[i]["_id"])
-    # gsm = GroupsScheduleManager([schedule], schedule)
-    # group_found['schedule'] = [models.TimeSlot(**params) for params in gsm.compute_group_schedule()]
-
     await users_collection.find_one_and_update({"_id": user_found["_id"]}, {"$set": user_found})
     await groups_collection.find_one_and_update({"_id": group_found["_id"]}, {"$set": group_found})
     return "ok"
