@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import datetime
 from pathlib import Path
@@ -961,6 +962,50 @@ async def delete_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer()))
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     raise HTTPException(status_code=404, detail=f"group {id} not found")
+
+
+@app.post("/groups/{id}/leave", response_description="Leave the group as a user")
+async def leave_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
+    user_found = await get_user(user.id)
+    group_found = await get_group(id)
+    if ObjectId(group_found["admin"]["_id"]) == user_found["_id"]:
+        raise HTTPException(status_code=400, detail="Can't leave group as the group admin")
+
+    user_found['groups'] = [
+        group_card for group_card in user_found['groups']
+        if ObjectId(group_card['_id']) != group_found['_id']
+    ]
+    group_found['users'] = [
+        user_card for user_card in group_found['users']
+        if ObjectId(user_card['_id']) != user_found['_id']
+    ]
+
+    chat = group_found.get("chat_messages")
+    cleaned_chat = []
+    if chat is not None:
+        msgs = json.loads(chat)
+        for msg in msgs:
+            if ObjectId(msg['user_id']) != user_found['_id']:
+                cleaned_chat.append(msg)
+        group_found['chat_messages'] = json.dumps(cleaned_chat)
+
+    poll = group_found.get("poll")
+    if poll is not None:
+        for opt in poll["votes"]:
+            if user.id in poll["votes"][opt]:
+                poll["votes"][opt].remove(user.id)
+
+    schedule = []
+    for user_card in group_found['users']:
+        schedule += await time_slots_collection.find({"_id": {"$in": (await get_user(user_card['_id'])).get("schedule", [])}}).to_list(1000)
+    for i in range(len(schedule)):
+        schedule[i]["_id"] = str(schedule[i]["_id"])
+    gsm = GroupsScheduleManager([schedule], schedule)
+    group_found['schedule'] = [models.TimeSlot(**params) for params in gsm.compute_group_schedule()]
+
+    await users_collection.find_one_and_update({"_id": user_found["_id"]}, {"$set": user_found})
+    await groups_collection.find_one_and_update({"_id": group_found["_id"]}, {"$set": group_found})
+    return "ok"
 
 
 @app.delete("/groups/{id}/poll", response_description="Delete a group poll")
