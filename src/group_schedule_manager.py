@@ -41,18 +41,21 @@ class GroupsScheduleManager:
         ir = []
         for ts in time_slots:
             if "is_meeting" not in ts or ts["is_meeting"] == False:
+                dt = datetime.datetime.fromisoformat(ts["start"])
                 ir.append((
-                    ts["day"],
-                    datetime.datetime.fromisoformat(ts["start"]).hour,
+                    dt.weekday(),
+                    dt.hour + dt.minute / 60,
                     ts["length"] / 60
                 ))
         return ir
 
     def _from_internal_representation(self, time_slots: Schedule) -> list[dict]:
         group_schedule = []
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(datetime.UTC)
         for (i, (d, s, l)) in enumerate(time_slots):
-            dt_str = datetime.datetime(now.year, now.month, now.day, int(s), int(60*(s % 1)), tzinfo=datetime.UTC)
+            now = datetime.datetime.now(datetime.UTC) 
+            week_start = now - datetime.timedelta(days=now.weekday())
+            dt_str = datetime.datetime(week_start.year, week_start.month, week_start.day, int(s), int((60*s) % 60), tzinfo=datetime.UTC) + datetime.timedelta(days=int(d))
             group_schedule.append({
                 "_id": str(i),
                 "day": d,

@@ -62,6 +62,7 @@ class MeetingModel(BaseModel):
     title: str = Field(..., description="Title of the meeting")
     start: str = Field(..., description="Start date and time of the meeting")
     length: int = Field(default=60, description="Length of the meeting in minutes")
+    time_slot_id: Optional[PyObjectId] = Field(...)
     description: Optional[str] = Field(None, description="Description of the meeting")
     summary: Optional[str] = Field("", description="Summary of a finished meeting")
     participants: List[Participant] = Field(

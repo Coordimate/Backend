@@ -303,11 +303,6 @@ async def create_time_slot(
     time_slot_created = await time_slots_collection.insert_one(time_slot.model_dump(by_alias=True, exclude={"id"}))
     user_found["schedule"].append(time_slot_created.inserted_id)
 
-    for group in user_found.get("groups", []):
-        group_found = await get_group(group["_id"])
-        group_found["schedule"] = group_found.get("schedule", []) + [time_slot_created.inserted_id]
-        await groups_collection.update_one({"_id": ObjectId(group["_id"])}, {"$set": group_found})
-
     await users_collection.update_one(
         {"_id": user_found["_id"]}, {"$set": {"schedule": user_found["schedule"]}}
     )
@@ -347,9 +342,6 @@ async def delete_time_slot(
 
     await time_slots_collection.delete_one({"_id": ObjectId(slot_id)})
 
-    for group in user_found.get("groups", []):
-        await groups_collection.update_one({"_id": ObjectId(group["_id"])}, {"$pull": {"schedule": ObjectId(slot_id)}})
-
     await users_collection.update_one(
         {"_id": ObjectId(user_found["_id"])}, {"$pull": {"schedule": {"_id": ObjectId(slot_id)}}}
     )
@@ -374,6 +366,8 @@ async def create_meeting(
     meeting_dict = meeting.model_dump(by_alias=True, exclude={"id"})
     meeting_dict["admin_id"] = str(user_found["_id"])
     meeting_dict["is_finished"] = False
+    length = meeting.length if meeting.length is not None else 60
+    meeting_dict["time_slot_id"] = await isoformat_to_timeslot(meeting.start, length)
     new_meeting = await meetings_collection.insert_one(meeting_dict)
     created_meeting = await meetings_collection.find_one(
         {"_id": new_meeting.inserted_id}
@@ -385,8 +379,6 @@ async def create_meeting(
     if "meetings" not in group:
         group["meetings"] = []
     group["meetings"].append(get_meeting_card(created_meeting))
-    length = meeting.length if meeting.length is not None else 60
-    group["schedule"].append(await isoformat_to_timeslot(meeting.start, length))
     await groups_collection.find_one_and_update({"_id": group["_id"]}, {"$set": group})
 
     created_meeting["participants"] = []
@@ -670,6 +662,11 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
                 f"The meeting {updated_meeting['title']} with group {group['name']}, time: {updated_meeting['start']}, just got updated.",
             )
 
+        length = meeting.length if meeting.length is not None else meeting_found['length']
+        start = meeting.start if meeting.start else meeting_found['start']
+        await time_slots_collection.find_one_and_delete({"_id": ObjectId(meeting_found['time_slot_id'])})
+        updated_meeting["time_slot_id"] = await isoformat_to_timeslot(start, length)
+
         update_result = await meetings_collection.find_one_and_update(
             {"_id": ObjectId(id)},
             {"$set": updated_meeting},
@@ -715,6 +712,7 @@ async def delete_meeting(id: str):
         )
 
     delete_result = await meetings_collection.delete_one({"_id": ObjectId(id)})
+    await time_slots_collection.find_one_and_delete({"_id": ObjectId(meeting["time_slot_id"])})
 
     if delete_result.deleted_count == 1:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -846,7 +844,6 @@ async def create_group(
     group_dict = group.model_dump(by_alias=True, exclude={"id"})
     group_dict["admin"] = user_card
     group_dict["users"] = [user_card]
-    group_dict["schedule"] = user_found.get("schedule", [])
     group_dict["chat_messages"] = "[]"
 
     new_group = await groups_collection.insert_one(group_dict)
@@ -1064,8 +1061,6 @@ async def join_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
         user_found["groups"] = []
     user_found["groups"].append(group_card)
 
-    group_found["schedule"] = group_found.get("schedule", []) + user_found.get("schedule", [])
-
     await users_collection.find_one_and_update(
         {"_id": user_found["_id"]}, {"$set": user_found}
     )
@@ -1086,18 +1081,24 @@ async def group_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
     _ = await get_user(user.id)
     group = await get_group(id)
 
-    schedule = await time_slots_collection.find({"_id": {"$in": group.get("schedule", [])}}).to_list(1000)
+    schedule = []
+    for user_card in group['users']:
+        user_found = await get_user(user_card['_id'])
+        assert user_found is not None
+        schedule += await time_slots_collection.find({"_id": {"$in": user_found.get("schedule", [])}}).to_list(1000)
+
     for i in range(len(schedule)):
         schedule[i]["_id"] = str(schedule[i]["_id"])
 
     gsm = GroupsScheduleManager([schedule], schedule)
     group_schedule = [models.TimeSlot(**params) for params in gsm.compute_group_schedule()]
 
-    group_schedule = [
-        time_slot for time_slot in group_schedule
-        if (not time_slot.is_meeting
-            or datetime.datetime.fromisoformat(time_slot.start) >= datetime.datetime.now(datetime.UTC))
-    ]
+    for meeting_card in group['meetings']:
+        meeting = await get_meeting(meeting_card["_id"])
+        meeting_time_slot = await time_slots_collection.find_one({"_id": meeting["time_slot_id"]})
+        if meeting_time_slot is not None:
+            if (datetime.datetime.fromisoformat(meeting_time_slot['start']) >= datetime.datetime.now(datetime.UTC)):
+                group_schedule.append(meeting_time_slot)
     return schemas.TimeSlotCollection(time_slots=group_schedule)
 
 
