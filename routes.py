@@ -1061,6 +1061,31 @@ async def join_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
         user_found["groups"] = []
     user_found["groups"].append(group_card)
 
+    if 'meetings' not in user_found:
+        user_found['meetings'] = []
+    for meeting in group_found['meetings']:
+        meeting_found = await meetings_collection.find_one({"_id": ObjectId(meeting["_id"])})
+        if meeting_found is None:
+            continue
+        user_found["meetings"].append(
+            {
+                "meeting_id": str(meeting["_id"]),
+                "status": models.MeetingStatus.needs_acceptance.value,
+            }
+        )
+        meeting_found["participants"].append(
+            {
+                "user_id": str(user_found["_id"]),
+                "username": user_found["username"],
+                "status": models.MeetingStatus.needs_acceptance.value,
+            }
+        )
+        await meetings_collection.find_one_and_update(
+            {"_id": ObjectId(meeting["_id"])},
+            {"$set": meeting_found},
+            return_document=ReturnDocument.AFTER
+        )
+
     await users_collection.find_one_and_update(
         {"_id": user_found["_id"]}, {"$set": user_found}
     )
