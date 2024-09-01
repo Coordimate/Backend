@@ -55,6 +55,12 @@ time_slots_collection = db.get_collection("time_slots")
 # ********** Authentification **********
 
 
+def cmp_ids(l, r):
+    if type(l) == type(r):
+        return l == r
+    return ObjectId(l) == ObjectId(r)
+
+
 @app.post(
     "/login",
     response_description="Authentificate a user",
@@ -64,14 +70,14 @@ time_slots_collection = db.get_collection("time_slots")
 )
 async def login(user: schemas.LoginUserSchema = Body(...)):
     if (user.auth_type == 'google'):
-        if (user_found := await users_collection.find_one({"email": user.email})) is None:
-            new_user = await users_collection.insert_one({'username': user.email.split('@')[0], 'email': user.email})
+        if (user_found := await users_collection.find_one({"email": user.email.lower()})) is None:
+            new_user = await users_collection.insert_one({'username': user.email.lower().split('@')[0], 'email': user.email})
             user_found = await get_user(new_user.inserted_id)
         token = auth.generateToken(schemas.AccountOut(id=str(user_found['_id']), email=user.email))
         await random_coffee(user_found["_id"])
         return token
     if (
-        user_found := await users_collection.find_one({"email": user.email})
+        user_found := await users_collection.find_one({"email": user.email.lower()})
     ) is not None:
         user_found["id"] = user_found.pop("_id")
         await random_coffee(user_found["id"])
@@ -82,7 +88,7 @@ async def login(user: schemas.LoginUserSchema = Body(...)):
                 )
             if user.password is not None:
                 if bcrypt.checkpw(user.password.encode("utf-8"), user_found["password"]):
-                    token = auth.generateToken(schemas.AccountOut(id=str(user_found['id']), email=user.email))
+                    token = auth.generateToken(schemas.AccountOut(id=str(user_found['id']), email=user.email.lower()))
                     return token
                 else:
                     raise HTTPException(status_code=400, detail=f"password incorrect")
@@ -92,10 +98,10 @@ async def login(user: schemas.LoginUserSchema = Body(...)):
                     detail=f"No password specified, our Google/Facebook Auth got us",
                 )
         else:
-            token = auth.generateToken(schemas.AccountOut(id=str(user_found['id']), email=user.email))
+            token = auth.generateToken(schemas.AccountOut(id=str(user_found['id']), email=user.email.lower()))
             return token
 
-    raise HTTPException(status_code=404, detail=f"user {user.email} not found")
+    raise HTTPException(status_code=404, detail=f"user {user.email.lower()} not found")
 
 
 @app.post(
@@ -165,6 +171,7 @@ async def register(user: schemas.CreateUserSchema = Body(...)):
                 detail=f"No password specified, our Google/Facebook Auth got us",
             )
     user_dict = user.model_dump(by_alias=True, exclude={"id"})
+    user_dict["email"] = user_dict["email"].lower()
     user_dict["fcm_token"] = "notoken"
     new_user = await users_collection.insert_one(user_dict)
     created_user = await users_collection.find_one({"_id": new_user.inserted_id})
@@ -1440,6 +1447,59 @@ async def create_random_coffee_meeting(user_id: str, mate_id: str, group_id: str
         {"$set": {"participants": created_meeting["participants"]}},
     )
     return created_meeting
+
+
+@app.delete("/groups/{group_id}/users/{user_id}")
+async def kick_user(group_id: str, user_id: str):
+    user_found = await get_user(user_id)
+    group_found = await get_group(group_id)
+
+    group_meeting_ids = set()
+    for meeting_card in group_found.get("meetings", []):
+        group_meeting_ids.add(meeting_card["_id"])
+        meeting = await get_meeting(meeting_card["_id"])
+
+        new_meeting_participants = []
+        for participant in meeting.get("participants", []):
+            assert type(ObjectId(participant["user_id"])) == type(ObjectId(user_id))
+            if ObjectId(participant["user_id"]) != ObjectId(user_id):
+                new_meeting_participants.append(participant)
+        meeting["participants"] = new_meeting_participants
+
+        await meetings_collection.find_one_and_update(
+            {"_id": ObjectId(meeting["_id"])},
+            {"$set": meeting},
+            return_document=ReturnDocument.AFTER
+        )
+
+    new_user_meetings = []
+    for meeting in user_found.get("meetings", []):
+        if group_meeting_ids:
+            assert type(meeting["meeting_id"]) == type(group_meeting_ids.copy().pop())
+        if meeting["meeting_id"] not in group_meeting_ids:
+            new_user_meetings.append(meeting)
+    user_found["meetings"] = new_user_meetings
+
+    new_user_groups = []
+    for group in user_found.get("groups", []):
+        if cmp_ids(group["_id"], group_id):
+            new_user_groups.append(group)
+    user_found["groups"] = new_user_groups
+
+    await users_collection.find_one_and_update(
+        {"_id": user_found["_id"]}, {"$set": user_found}
+    )
+
+    new_group_users = []
+    for user in group_found.get("users", []):
+        if not cmp_ids(user["_id"], user_id):
+            new_group_users.append(user)
+    group_found["users"] = new_group_users
+
+    await groups_collection.find_one_and_update(
+        {"_id": group_found["_id"]}, {"$set": group_found}
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 async def random_coffee(user_id: str):
