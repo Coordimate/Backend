@@ -1063,10 +1063,18 @@ async def join_group(id: str, user: schemas.AuthSchema = Depends(JWTBearer())):
 
     if 'meetings' not in user_found:
         user_found['meetings'] = []
+    if 'meetings' not in group_found:
+        group_found['meetings'] = []
     for meeting in group_found['meetings']:
         meeting_found = await meetings_collection.find_one({"_id": ObjectId(meeting["_id"])})
         if meeting_found is None:
             continue
+
+        now = datetime.datetime.now(datetime.UTC)
+        meeting_time = datetime.datetime.fromisoformat(meeting_found["start"])
+        if meeting_time + datetime.timedelta(minutes=meeting_found["length"]) < now:
+            continue
+
         user_found["meetings"].append(
             {
                 "meeting_id": str(meeting["_id"]),
