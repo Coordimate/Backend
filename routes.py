@@ -655,12 +655,12 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
         updated_meeting.update(meeting_dict)
         for i, u in enumerate(meeting_found["participants"]):
             user = await get_user(u["user_id"])
-            for i, invite in enumerate(user["meetings"]):
+            for j, invite in enumerate(user["meetings"]):
                 if cmp_ids(invite["meeting_id"], id):
                     invite.update(meeting_dict)
-                    user["meetings"][i] = invite
+                    user["meetings"][j] = invite
                     if meeting_dict.get('is_finished', False) and meeting_found["participants"][i]["status"] == models.MeetingStatus.needs_acceptance:
-                        user["meetings"][i]["status"] = models.MeetingStatus.declined
+                        user["meetings"][j]["status"] = models.MeetingStatus.declined
                     break
             await users_collection.find_one_and_update(
                 {"_id": user["_id"]}, {"$set": user}
