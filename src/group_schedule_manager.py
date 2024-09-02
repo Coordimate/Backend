@@ -60,7 +60,7 @@ class GroupsScheduleManager:
                 "_id": str(i),
                 "day": d,
                 "start": str(dt_str),
-                "length": 60*l,
+                "length": int(60*l),
                 "is_meeting": False
             })
         l = len(group_schedule)
