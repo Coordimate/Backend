@@ -1487,7 +1487,7 @@ async def kick_user(group_id: str, user_id: str):
 
     new_user_groups = []
     for group in user_found.get("groups", []):
-        if cmp_ids(group["_id"], group_id):
+        if not cmp_ids(group["_id"], group_id):
             new_user_groups.append(group)
     user_found["groups"] = new_user_groups
 
