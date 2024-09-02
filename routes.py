@@ -1138,7 +1138,7 @@ async def group_schedule(id, user: schemas.AuthSchema = Depends(JWTBearer())):
     gsm = GroupsScheduleManager([schedule], schedule)
     group_schedule = [models.TimeSlot(**params) for params in gsm.compute_group_schedule()]
 
-    for meeting_card in group['meetings']:
+    for meeting_card in group.get('meetings', []):
         meeting = await get_meeting(meeting_card["_id"])
         meeting_time_slot = await time_slots_collection.find_one({"_id": meeting["time_slot_id"]})
         if meeting_time_slot is not None:
