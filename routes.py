@@ -653,7 +653,7 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
 
         updated_meeting = meeting_found.copy()
         updated_meeting.update(meeting_dict)
-        for u in meeting_found["participants"]:
+        for i, u in enumerate(meeting_found["participants"]):
             user = await get_user(u["user_id"])
             for i, invite in enumerate(user["meetings"]):
                 if cmp_ids(invite["meeting_id"], id):
@@ -665,6 +665,9 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
             await users_collection.find_one_and_update(
                 {"_id": user["_id"]}, {"$set": user}
             )
+
+            if meeting_dict.get('is_finished', False):
+                updated_meeting["participants"][i]["status"] = models.MeetingStatus.declined
             notify_single_user(
                 user["fcm_token"],
                 "Meeting Update",
