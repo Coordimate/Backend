@@ -659,14 +659,14 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
                 if cmp_ids(invite["meeting_id"], id):
                     invite.update(meeting_dict)
                     user["meetings"][i] = invite
-                    if meeting_dict.get('is_finished', False):
+                    if meeting_dict.get('is_finished', False) and meeting_found["participants"][i]["status"] == models.MeetingStatus.needs_acceptance:
                         user["meetings"][i]["status"] = models.MeetingStatus.declined
                     break
             await users_collection.find_one_and_update(
                 {"_id": user["_id"]}, {"$set": user}
             )
 
-            if meeting_dict.get('is_finished', False):
+            if meeting_dict.get('is_finished', False) and meeting_found["participants"][i]["status"] == models.MeetingStatus.needs_acceptance:
                 updated_meeting["participants"][i]["status"] = models.MeetingStatus.declined
             notify_single_user(
                 user["fcm_token"],
