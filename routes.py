@@ -656,7 +656,7 @@ async def update_meeting(id: str, meeting: schemas.UpdateMeeting = Body(...)):
         for u in meeting_found["participants"]:
             user = await get_user(u["user_id"])
             for i, invite in enumerate(user["meetings"]):
-                if invite["meeting_id"] == id:
+                if cmp_ids(invite["meeting_id"], id):
                     invite.update(meeting_dict)
                     user["meetings"][i] = invite
                     break
